@@ -1,0 +1,51 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+    # Text file checkers
+    -   id: check-json                  # checks json files for parseable syntax
+    -   id: check-toml                  # checks toml files for parseable syntax
+    -   id: check-xml                   # checks xml files for parseable syntax
+    -   id: check-yaml                  # checks yaml files for parseable syntax
+    # Linters
+    -   id: check-docstring-first       # checks a common error of defining a docstring after code
+    -   id: check-case-conflict         # checks for files that would conflict in case-insensitive filesystems
+    -   id: end-of-file-fixer           # ensures that a file is either empty, or ends with one newline
+    -   id: trailing-whitespace         # trims trailing whitespace
+    # Merging
+    -   id: check-merge-conflict        # checks for files that contain merge conflict strings
+    # Linking
+    -   id: check-symlinks              # checks for symlinks which do not point to anything
+    # Security
+    -   id: detect-private-key          # detects the presence of private keys
+        files: ^path/to/excluded/file$
+
+-   repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+    # Linters
+    -   id: python-check-blanket-type-ignore    # Enforce that # type: ignore annotations always occur with specific codes. Sample annotations: # type: ignore[attr-defined], # type: ignore[attr-defined, name-defined]
+
+-   repo: https://github.com/asottile/add-trailing-comma
+    rev: v3.1.0
+    hooks:
+    # Linters
+    -   id: add-trailing-comma          # add trailing commas to calls and literals
+
+-   repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.1
+    hooks:
+    # Linters
+    - id: autoflake                     # remove unused variables and imports
+
+# -   repo: https://github.com/asottile/dead
+#     rev: v1.5.2
+#     hooks:
+#     # Linters
+#     -   id: dead                        # check for dead code
+
+# -   repo: https://github.com/PyCQA/bandit
+#     rev: 1.7.9
+#     hooks:
+#     # Security
+#     -   id: bandit                      # check for common security issues
