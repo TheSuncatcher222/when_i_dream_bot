@@ -1,0 +1,5 @@
+# Aiogram
+aiogram~=3.20                     # Telegram Bot.
+
+# APScheduler.
+APScheduler~=3.11                 # Планировщик задач.
