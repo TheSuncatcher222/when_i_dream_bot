@@ -52,6 +52,8 @@ class TableNames:
     game: str = 'table_game'
     image: str = 'table_image'
     user: str = 'table_user'
+    user_statistic: str = 'table_user_statistic'
+    user_achievement: str = 'table_user_achievement'
 
 
 class RedisKeys:
