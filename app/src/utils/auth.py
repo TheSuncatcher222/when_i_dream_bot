@@ -17,4 +17,4 @@ def check_if_user_is_admin(user_id_telegram: int | str) -> bool:
     """
     Проверяет, является ли пользователь администратором.
     """
-    return str(user_id_telegram) in settings.BOT_ADMIN_IDS
+    return str(user_id_telegram) in settings.ADMIN_IDS

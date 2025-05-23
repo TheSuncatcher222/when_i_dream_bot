@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     REDIS_DB_CACHE: int = 0
 
     """Настройки Telegram Bot."""
-    BOT_ADMIN_IDS: list[str]
+    ADMIN_IDS: list[str]
     BOT_TOKEN: str
     DEBUG_DB: bool = False
     DEBUG_LOGGING = False
