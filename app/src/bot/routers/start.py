@@ -38,7 +38,7 @@ async def command_start(message: Message, from_command_start: bool = True) -> No
         )
     answer: Message = await message.answer(
         text=text,
-        reply_markup=await get_keyboard_main_menu(user_id_telegram=message.from_user.id),
+        reply_markup=get_keyboard_main_menu(user_id_telegram=message.from_user.id),
     )
 
     async with async_session_maker() as session:

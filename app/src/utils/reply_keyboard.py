@@ -37,19 +37,18 @@ def make_row_keyboard(rows: tuple[tuple[str]]) -> ReplyKeyboardMarkup:
     )
 
 
-async def get_keyboard_main_menu(user_id_telegram: int | str) -> ReplyKeyboardMarkup:
+def get_keyboard_main_menu(user_id_telegram: int | str) -> ReplyKeyboardMarkup:
     """
     Возвращает клавиатуру главного меню.
     """
     # TODO. Добавить Redis
     keyboard: list[list[str]] = (
         (RoutersCommands.GAME_CREATE, RoutersCommands.GAME_JOIN),
-        (RoutersCommands.HELP),
+        (RoutersCommands.HELP,),
     )
     if check_if_user_is_admin(user_id_telegram=user_id_telegram):
         keyboard: list[list[str]] = (
-            (RoutersCommands.PING,),
-            (RoutersCommands.CHECK_IMAGES,),
+            (RoutersCommands.PING,RoutersCommands.CHECK_IMAGES),
             *keyboard,
         )
     return make_row_keyboard(rows=keyboard)
