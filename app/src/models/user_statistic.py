@@ -58,7 +58,7 @@ class UserStatistic(Base):
         server_default='0',
     )
     total_quits: Mapped[int] = mapped_column(
-        comment='Общее количество выходов',
+        comment='Общее количество выходов из игры',
         server_default='0',
     )
     last_game_date: Mapped[datetime] = mapped_column(
