@@ -34,35 +34,35 @@ class UserAchievement(Base):
 
     nightmare: Mapped[int] = mapped_column(
         comment='👺 Cущий кошмар: не отгадал(а) ни одного слова за спящего',
-        server_default=0,
+        server_default='0',
     )
     dream_master: Mapped[int] = mapped_column(
         comment='😻 Cон на яву: отгадал(а) все слова за спящего',
-        server_default=0,
+        server_default='0',
     )
     top_guesser: Mapped[int] = mapped_column(
         comment='🕵️‍♀️ Яркие сны: угадал(а) больше всего слов за спящего',
-        server_default=0,
+        server_default='0',
     )
     top_buka: Mapped[int] = mapped_column(
         comment='🗿 Бу-бу-бука: получил(а) больше всего очков за буку',
-        server_default=0,
+        server_default='0',
     )
     top_fairy: Mapped[int] = mapped_column(
         comment='🧚‍♀️ Крестная фея: получил(а) больше всего очков за фею',
-        server_default=0,
+        server_default='0',
     )
     top_sandman: Mapped[int] = mapped_column(
         comment='🎭 Лицемерище: получил(а) больше всего очков за песочного человечка',
-        server_default=0,
+        server_default='0',
     )
     top_score: Mapped[int] = mapped_column(
         comment='🥇 Высший разум: получил(а) больше всего очков',
-        server_default=0,
+        server_default='0',
     )
     penalty_master: Mapped[int] = mapped_column(
         comment='🌚 Кайфоломщик: получил(а) больше всего пенальти',
-        server_default=0,
+        server_default='0',
     )
 
     # Foreign keys.

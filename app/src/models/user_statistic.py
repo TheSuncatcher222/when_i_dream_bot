@@ -39,27 +39,27 @@ class UserStatistic(Base):
 
     total_score: Mapped[int] = mapped_column(
         comment='Общее количество очков',
-        server_default=0,
+        server_default='0',
     )
     total_score_buka: Mapped[int] = mapped_column(
         comment='Количество очков за буку',
-        server_default=0,
+        server_default='0',
     )
     total_score_fairy: Mapped[int] = mapped_column(
         comment='Количество очков за фею',
-        server_default=0,
+        server_default='0',
     )
     total_score_sandman: Mapped[int] = mapped_column(
         comment='Количество очков за песочного человека',
-        server_default=0,
+        server_default='0',
     )
     total_wins: Mapped[int] = mapped_column(
         comment='Общее количество побед',
-        server_default=0,
+        server_default='0',
     )
     total_quits: Mapped[int] = mapped_column(
         comment='Общее количество выходов',
-        server_default=0,
+        server_default='0',
     )
     last_game_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
