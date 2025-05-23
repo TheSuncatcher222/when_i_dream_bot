@@ -1,7 +1,6 @@
 from aiogram import Router
 from aiogram.types import Message
 
-from app.src.utils.message import delete_messages_list
 from app.src.bot.routers.start import command_start
 from app.src.utils.message import delete_messages_list
 from app.src.utils.reply_keyboard import RoutersCommands
