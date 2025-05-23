@@ -13,13 +13,13 @@ class RoutersCommands:
 
     # Admin
     PING: str = '⚠️ Пинг'
+    CHECK_IMAGES: str = '⚠️ Проверить картинки'
 
     # Common
     HELP: str = 'Помощь'
     HOME: str = 'Главное меню'
     GAME_CREATE: str = 'Создать игру'
     GAME_JOIN: str = 'Присоединиться к игре'
-    RULES: str = 'Правила'
 
 
 def make_row_keyboard(rows: tuple[tuple[str]]) -> ReplyKeyboardMarkup:
@@ -44,11 +44,12 @@ async def get_keyboard_main_menu(user_id_telegram: int | str) -> ReplyKeyboardMa
     # TODO. Добавить Redis
     keyboard: list[list[str]] = (
         (RoutersCommands.GAME_CREATE, RoutersCommands.GAME_JOIN),
-        (RoutersCommands.RULES, RoutersCommands.HELP),
+        (RoutersCommands.HELP),
     )
     if check_if_user_is_admin(user_id_telegram=user_id_telegram):
         keyboard: list[list[str]] = (
             (RoutersCommands.PING,),
+            (RoutersCommands.CHECK_IMAGES,),
             *keyboard,
         )
     return make_row_keyboard(rows=keyboard)
