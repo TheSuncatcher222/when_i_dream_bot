@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     ADMIN_IDS: list[str]
     BOT_TOKEN: str
     DEBUG_DB: bool = False
-    DEBUG_LOGGING = False
+    DEBUG_LOGGING: bool = False
 
 
 settings = Settings()
