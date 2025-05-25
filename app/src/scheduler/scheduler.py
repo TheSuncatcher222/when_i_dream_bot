@@ -8,3 +8,11 @@ scheduler: AsyncIOScheduler = AsyncIOScheduler(
     executors={'default': AsyncIOExecutor()},
     jobstores={'default': SQLAlchemyJobStore(engine=sync_engine)},
 )
+
+
+class SchedulerJobNames:
+    """
+    Класс представления названий (id) задач планировщика.
+    """
+
+    SYNC_IMAGES = 'sync_images'
