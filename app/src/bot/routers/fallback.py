@@ -21,7 +21,7 @@ async def fallback(message: Message):
             chat_id=message.chat.id,
             messages_ids=list(range(message.message_id-10, message.message_id + 1)),
         )
-        return await command_start(message=message, from_command_start=False)
+        return await command_start(message=message)
 
     await delete_messages_list(
         chat_id=message.chat.id,
