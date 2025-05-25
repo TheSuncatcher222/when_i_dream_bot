@@ -86,3 +86,12 @@ class LoggerJson:
         # INFO. Настройка логера.
         self.logger.addHandler(self.log_handler)
         self.logger.setLevel(log_min_level if log_min_level in logging_levels else LOG_LEVEL_INFO)
+
+
+# INFO. Логгеры для модулей.
+
+
+LoggerJsonImage: Logger = LoggerJson(
+    logger_name='Image',
+    log_min_level=LOG_LEVEL_DEFAULT,
+).logger
