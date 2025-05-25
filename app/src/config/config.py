@@ -5,7 +5,30 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-DIR_SRC: Path = Path(__file__).parent.parent
+
+class Dirs:
+    """Класс представления путей и папок."""
+
+    # Base.
+    DIR_SRC: Path = Path(__file__).parent.parent
+
+    # Res.
+    DIR_RES: Path = DIR_SRC / 'res'
+
+    CHARACTERS: Path = 'characters'
+    RULES: Path = 'rules'
+    WORDS: Path = 'words'
+    DIR_CHARACTERS: Path = DIR_RES / CHARACTERS
+    DIR_RULES: Path = DIR_RES / RULES
+    DIR_WORDS: Path = DIR_RES / WORDS
+
+    @classmethod
+    def get_all_cards(cls) -> list[Path]:
+        return (
+            cls.DIR_CHARACTERS,
+            cls.DIR_RULES,
+            cls.DIR_WORDS,
+        )
 
 
 class Settings(BaseSettings):
@@ -31,6 +54,7 @@ class Settings(BaseSettings):
 
     """Настройки Telegram Bot."""
     ADMIN_IDS: list[str]
+    ADMIN_NOTIFY_ID: str
     BOT_TOKEN: str
     DEBUG_DB: bool = False
     DEBUG_LOGGING: bool = False
