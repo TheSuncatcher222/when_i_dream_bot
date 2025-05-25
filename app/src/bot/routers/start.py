@@ -16,28 +16,22 @@ router: Router = Router()
 
 
 @router.message(CommandStart())
-async def command_start(message: Message, from_command_start: bool = True) -> None:
+async def command_start(message: Message) -> None:
     """
     Обрабатывает команду /start и регистрирует/обновляет пользователя.
     """
-    text: str = (
-        'Добро пожаловать, о чудесный сновидец!'
-        '\n\n'
-        'Сегодня ты отправляешься в невероятное путешествие по миру снов. Миру, '
-        'где обитают сказочные создания, вершится магия и процветает фантазия. '
-        'Там ты встретишь друзей и врагов, правдолюбов и лжецов, людей искренних '
-        'и лицемерных.'
-        '\n\n'
-        'Чтобы успешно пройти через все испытания тебе нужно проявить смелость, '
-        'находчивость, смекалку и внутреннюю интуицию. Желаю приятных снов!'
-    )
-    if from_command_start:
-        await delete_messages_list(
-            chat_id=message.chat.id,
-            messages_ids=[message.message_id],
-        )
     answer: Message = await message.answer(
-        text=text,
+        text=(
+            'Добро пожаловать, о чудесный сновидец!'
+            '\n\n'
+            'Сегодня ты отправляешься в невероятное путешествие по миру снов. Миру, '
+            'где обитают сказочные создания, вершится магия и процветает фантазия. '
+            'Там ты встретишь друзей и врагов, правдолюбов и лжецов, людей искренних '
+            'и лицемерных.'
+            '\n\n'
+            'Чтобы успешно пройти через все испытания тебе нужно проявить смелость, '
+            'находчивость, смекалку и внутреннюю интуицию. Желаю приятных снов!'
+        ),
         reply_markup=get_keyboard_main_menu(user_id_telegram=message.from_user.id),
     )
 
@@ -58,10 +52,14 @@ async def command_start(message: Message, from_command_start: bool = True) -> No
                 session=session,
                 perform_commit=False,
             )
+            await delete_messages_list(
+                chat_id=message.chat.id,
+                messages_ids=[message.message_id],
+            )
         else:
             await delete_messages_list(
                 chat_id=message.chat.id,
-                messages_ids=[user.message_main_last_id],
+                messages_ids=list(range(user.message_main_last_id, message.message_id + 1)),
             )
         await user_crud.update_by_id(
             obj_id=user.id,
