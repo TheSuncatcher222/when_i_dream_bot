@@ -13,7 +13,7 @@ class RoutersCommands:
 
     # Admin
     PING: str = '⚠️ Пинг'
-    CHECK_IMAGES: str = '⚠️ Проверить картинки'
+    SYNC_IMAGES: str = '⚠️ Синхронизировать картинки'
 
     # Common
     HELP: str = 'Помощь'
@@ -48,7 +48,8 @@ def get_keyboard_main_menu(user_id_telegram: int | str) -> ReplyKeyboardMarkup:
     )
     if check_if_user_is_admin(user_id_telegram=user_id_telegram):
         keyboard: list[list[str]] = (
-            (RoutersCommands.PING,RoutersCommands.CHECK_IMAGES),
+            (RoutersCommands.PING,),
+            (RoutersCommands.SYNC_IMAGES,),
             *keyboard,
         )
     return make_row_keyboard(rows=keyboard)
