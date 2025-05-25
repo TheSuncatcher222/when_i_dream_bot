@@ -2,6 +2,7 @@
 Модуль базового класса асинхронных CRUD запросов в базу данных.
 """
 
+from typing import Iterable
 
 from sqlalchemy.sql import (
     delete,
@@ -131,6 +132,22 @@ class BaseAsyncCrud():
         Удаляет один объект из базы данных по указанному id.
         """
         stmt: Delete = delete(self.model).where(self.model.id == obj_id)
+        await session.execute(stmt)
+
+        if perform_commit:
+            await session.commit()
+
+    async def delete_all_by_ids(
+        self,
+        *,
+        obj_ids: Iterable[int],
+        session: AsyncSession,
+        perform_commit: bool = True,
+    ) -> None:
+        """
+        Удаляет все объекты из базы данных по указанным id.
+        """
+        stmt: Delete = delete(self.model).where(self.model.id.in_(obj_ids))
         await session.execute(stmt)
 
         if perform_commit:
