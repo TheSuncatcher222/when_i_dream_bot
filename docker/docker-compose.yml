@@ -1,0 +1,84 @@
+name: when_i_dream_telegram_bot
+
+x-common: &common-env
+  env_file:
+    - .env
+
+services:
+
+  redis:
+    <<: *common-env
+    container_name: when_i_dream_telegram_bot_redis
+    expose:
+      - 6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    hostname: when-i-dream-telegram-bot-redis
+    image: redis:7.2.1-alpine3.18
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 5
+    restart: unless-stopped
+    volumes:
+      - redis_volume:/data/
+
+  postgresql:
+    <<: *common-env
+    container_name: when_i_dream_telegram_bot_postgresql
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    hostname: when-i-dream-telegram-bot-postgresql
+    image: postgres:15-alpine3.18
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    restart: unless-stopped
+    volumes:
+      - postgresql_volume:/var/lib/postgresql/data/
+
+  pg_admin:
+    <<: *common-env
+    container_name: when_i_dream_telegram_bot_pg_admin
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    hostname: when-i-dream-telegram-bot-pg-admin
+    image: dpage/pgadmin4
+    ports:
+      - "5055:80"
+    restart: unless-stopped
+    volumes:
+      - pg_admin_volume:/var/lib/pgadmin
+
+  app:
+    <<: *common-env
+    command: sh -c "
+      alembic upgrade head &
+      python src/main.py"
+    container_name: when_i_dream_telegram_bot_app
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    hostname: when-i-dream-telegram-bot-app
+    image: thesuncatcher222/when_i_dream_telegram_bot:latest
+    restart: unless-stopped
+
+volumes:
+
+  pg_admin_volume:
+  postgresql_volume:
+  redis_volume:

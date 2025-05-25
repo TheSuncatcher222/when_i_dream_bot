@@ -1,0 +1,34 @@
+name: when_i_dream_telegram_bot
+
+
+x-common: &common-env
+  env_file:
+    - ../app/src/config/.env
+
+services:
+
+  app:
+    build:
+      context: ../app
+      dockerfile: Dockerfile
+    command: sh -c "
+      alembic upgrade head &
+      python src/main.py"
+    container_name: when_i_dream_telegram_bot_app
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../app/src/config/.env
+    hostname: when-i-dream-telegram-bot-app
+    restart: unless-stopped
+    volumes:
+      - ../app:/app
+
+volumes:
+
+  pg_admin_volume:
+  postgresql_volume:
+  redis_volume:
