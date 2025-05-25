@@ -80,7 +80,7 @@ class UserAchievement(Base):
 
     # Relationships.
 
-    achievements: Mapped['User'] = relationship(
+    user: Mapped['User'] = relationship(
         'User',
         back_populates='achievements',
     )
