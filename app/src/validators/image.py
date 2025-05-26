@@ -2,6 +2,9 @@
 Модуль с валидаторами моделей базы данных приложения "image".
 """
 
+from enum import IntEnum
+
+
 class ImageParams:
     """
     Параметры изображений.
@@ -12,14 +15,18 @@ class ImageParams:
     ID_TELEGRAM_LEN_MAX: int = 128
     # Пример: /app/src/res/characters/х1_песочный_человечек.jpg
     LOCAL_PATH_LEN_MAX: int = 128
-    NAME_LEN_MAX: int = 24
+    NAME_LEN_MAX: int = 48
 
 
-class ImageCategory:
+class ImageCategory(IntEnum):
     """
     Категории изображений.
     """
 
-    CHARACTERS: str = 'characters'
-    RULES: str = 'rules'
-    WORDS: str = 'words'
+    CHARACTERS: int = 1
+    RULES: int = 2
+    WORDS: int = 3
+
+    @classmethod
+    def get_category_by_dir(cls, dir_name: str) -> int:
+        return getattr(cls, dir_name.upper())
