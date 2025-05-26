@@ -1,10 +1,5 @@
 
-from sqlalchemy.sql import (
-    delete,
-    insert,
-    select,
-    update,
-)
+from sqlalchemy.sql import select
 from sqlalchemy.sql.selectable import Select
 
 from app.src.database.base_async_crud import (
@@ -35,7 +30,7 @@ class UserCrud(BaseAsyncCrud):
         """
         Получает один объект из базы данных по указанному id_telegram.
         """
-        query: Select = select(self.model).where(self.model.id_telegram == str(obj_id_telegram))
+        query: Select = select(User).where(User.id_telegram == str(obj_id_telegram))
         return (await session.execute(query)).scalars().first()
 
 
