@@ -6,6 +6,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.src.bot.routers.fallback import router as fallback
 from app.src.bot.routers.help import router as help
+from app.src.bot.routers.game_create import router  as game_create
 from app.src.bot.routers.ping import router as ping
 from app.src.bot.routers.start import router as start
 from app.src.bot.routers.sync_images import router as sync_images
@@ -16,6 +17,7 @@ dp: Dispatcher = Dispatcher(
 
 routers: tuple[Router] = (
     help,
+    game_create,
     ping,
     sync_images,
 )
