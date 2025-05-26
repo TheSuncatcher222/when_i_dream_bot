@@ -26,16 +26,13 @@ async def command_sync_images(message: Message):
     """
     Создает задачу синхронизации картинок.
     """
-    if scheduler.get_job(job_id=SchedulerJobNames.SYNC_IMAGES):
-        answer_text: str = 'Синхронизация уже в процессе'
-    else:
-        answer_text: str = 'Синхронизация запущена'
-        scheduler.add_job(
-            id=SchedulerJobNames.SYNC_IMAGES,
-            func=sync_images,
-        )
-
-    await message.answer(text=answer_text)
+    scheduler.add_job(
+        id=SchedulerJobNames.SYNC_IMAGES,
+        func=sync_images,
+        max_instances=1,
+        replace_existing=False,
+    )
+    await message.answer(text='Синхронизация запущена')
     await async_sleep(1)
     await delete_messages_list(
         chat_id=message.chat.id,
