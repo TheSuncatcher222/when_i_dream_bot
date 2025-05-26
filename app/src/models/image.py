@@ -1,4 +1,7 @@
-from sqlalchemy import String
+from sqlalchemy import (
+    Integer,
+    String,
+)
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
@@ -8,7 +11,10 @@ from app.src.database.database import (
     Base,
     TableNames,
 )
-from app.src.validators.image import ImageParams
+from app.src.validators.image import (
+    ImageParams,
+    ImageCategory,
+)
 
 
 class Image(Base):
@@ -34,7 +40,7 @@ class Image(Base):
     )
     local_path: Mapped[str] = mapped_column(
         String(length=ImageParams.LOCAL_PATH_LEN_MAX),
-        comment='путь к изображению',
+        comment='путь',
         unique=True,
     )
     name: Mapped[str] = mapped_column(
@@ -45,7 +51,7 @@ class Image(Base):
     order: Mapped[int] = mapped_column(
         comment='порядковый номер',
     )
-    category: Mapped[str] = mapped_column(
-        String(length=ImageParams.CATEGORY_LEN_MAX),
-        comment='категория',
+    category: Mapped[ImageCategory] = mapped_column(
+        Integer,
+        comment="категория",
     )
