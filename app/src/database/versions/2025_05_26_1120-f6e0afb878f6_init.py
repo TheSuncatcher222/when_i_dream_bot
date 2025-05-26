@@ -36,7 +36,6 @@ def upgrade() -> None:
     op.create_table(
         'table_user',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False, comment='ID'),
-        sa.Column('country', sa.String(length=2), server_default=sa.text('NULL'), nullable=True, comment='страна'),
         sa.Column('datetime_start', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False, comment='дата и время старта бота'),
         sa.Column('datetime_stop', sa.DateTime(timezone=True), server_default=sa.text('NULL'), nullable=True, comment='дата и время остановки бота'),
         sa.Column('id_telegram', sa.String(length=17), nullable=False, comment='id в Telegram'),
