@@ -20,6 +20,8 @@ class RoutersCommands:
     HOME: str = 'Главное меню'
     GAME_CREATE: str = 'Создать игру'
     GAME_JOIN: str = 'Присоединиться к игре'
+    GAME_START: str = 'Начать игру'
+    GAME_DROP: str = 'Выйти из игры'
 
 
 def make_row_keyboard(rows: tuple[tuple[str]]) -> ReplyKeyboardMarkup:
@@ -55,4 +57,12 @@ def get_keyboard_main_menu(user_id_telegram: int | str) -> ReplyKeyboardMarkup:
     return make_row_keyboard(rows=keyboard)
 
 
-KEYBOARD_HOME: ReplyKeyboardMarkup = make_row_keyboard(rows=((RoutersCommands.HOME,),))
+KEYBOARD_HOME: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=((RoutersCommands.HOME,),),
+)
+KEYBOARD_LOBBY: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=((RoutersCommands.GAME_DROP,),),
+)
+KEYBOARD_LOBBY_HOST: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=((RoutersCommands.GAME_START,),(RoutersCommands.GAME_DROP,)),
+)
