@@ -42,12 +42,6 @@ class User(Base):
 
     # Fields.
 
-    country: Mapped[str] = mapped_column(
-        String(length=UserParams.COUNTRY_LEN_MAX),
-        comment='страна',
-        nullable=True,
-        server_default=expression.null(),
-    )
     datetime_start: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         comment='дата и время старта бота',
@@ -98,3 +92,19 @@ class User(Base):
         'UserStatistic',
         back_populates='user',
     )
+
+    def get_full_name(self) -> str:
+        """Возвращает имя пользователя."""
+        name: list[str] = []
+        if self.name_first:
+            name.append(f'{self.name_first} ')
+        if self.name_last:
+            name.append(f'{self.name_last} ')
+        if self.username:
+            if name:
+                name.append(f'(@{self.username})')
+            else:
+                name.append(f'@{self.username}')
+        if name:
+            return ''.join(name)
+        return self.id_telegram
