@@ -8,6 +8,7 @@ from asyncio import (
     gather as asyncio_gather,
     sleep as asyncio_sleep,
 )
+from random import shuffle
 from re import sub as re_sub
 from pathlib import Path
 
@@ -25,9 +26,17 @@ from app.src.config.config import (
     settings,
 )
 from app.src.crud.image import image_crud
-from app.src.database.database import async_session_maker
+from app.src.database.database import (
+    async_session_maker,
+    RedisKeys,
+)
 from app.src.utils.message import delete_messages_list
 from app.src.validators.image import ImageCategory
+from app.src.utils.redis_app import (
+    redis_delete,
+    redis_get,
+    redis_set,
+)
 
 
 async def get_rules_ids_telegram() -> list[str]:
@@ -35,6 +44,17 @@ async def get_rules_ids_telegram() -> list[str]:
     # TODO. Интегрировать Redis
     async with async_session_maker() as session:
         return await image_crud.retrieve_all_rules_ids_telegram(session=session)
+
+
+async def shuffle_cards() -> list[int]:
+    """Перемешивает карты для игры."""
+    cards_ids: list[int] = redis_get(key=RedisKeys.WORDS)
+    if not cards_ids:
+        async with async_session_maker() as session:
+            cards_ids: list[int] = await image_crud.retrieve_all_words_ids_telegram(session=session)
+            redis_set(key=RedisKeys.WORDS, value=cards_ids)
+    shuffle(cards_ids)
+    return cards_ids
 
 
 async def sync_images() -> None:
@@ -69,6 +89,8 @@ async def sync_images() -> None:
                 obj_ids=[obj['id'] for obj in db_images.values()],
                 session=session,
             )
+
+    redis_delete(key=RedisKeys.WORDS)
 
     message: Message = await bot.send_message(
         chat_id=settings.ADMIN_NOTIFY_ID,
