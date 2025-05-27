@@ -4,8 +4,10 @@ from aiogram import (
     Router,
     F,
 )
-from aiogram.types import Message
-from aiogram.utils.text_decorations import markdown_decoration
+from aiogram.types import (
+    InputMediaPhoto,
+    Message,
+)
 
 
 from app.src.utils.image import get_rules_ids_telegram
@@ -52,10 +54,12 @@ async def help(message: Message) -> None:
 
             'С правилами игры можно ознакомиться ниже на картинках:'
         ),
-        # TODO. Добавить форматирование.
-        # parse_mode='MarkdownV2',
         reply_markup=KEYBOARD_HOME,
     )
     await message.answer_media_group(
-        media=await get_rules_ids_telegram(),
+        media=[
+            InputMediaPhoto(media=media_id)
+            for media_id
+            in await get_rules_ids_telegram()
+        ],
     )
