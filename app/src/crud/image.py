@@ -22,7 +22,7 @@ class ImageCrud(BaseAsyncCrud):
         query: Select = (
             select(Image.id_telegram)
             .where(Image.category == ImageCategory.RULES)
-            .order_by(Image.order)
+            .order_by(Image.name)
         )
         return (await session.execute(query)).scalars().all()
 
