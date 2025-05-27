@@ -13,3 +13,24 @@ def form_lobby_host_message(game_number: int) -> str:
         'Список игроков:\n'
         f'{players}'
     )
+
+
+def get_players_roles(players_count: int) -> list[str]:
+    """
+    Формирует список ролей игроков в зависимости от количества.
+    """
+    if players_count == 4:
+        fairy, buka, sandman = 1, 1, 1
+    elif players_count == 5:
+        fairy, buka, sandman = 1, 1, 2
+    elif players_count == 6:
+        fairy, buka, sandman = 1, 2, 2
+    elif players_count == 7:
+        fairy, buka, sandman = 2, 3, 1
+    elif players_count == 8:
+        fairy, buka, sandman = 2, 3, 2
+    elif players_count == 9:
+        fairy, buka, sandman = 3, 4, 1
+    elif players_count == 10:
+        fairy, buka, sandman = 3, 4, 2
+    return ['fairy'] * fairy + ['buka'] * buka + ['sandman'] * sandman
