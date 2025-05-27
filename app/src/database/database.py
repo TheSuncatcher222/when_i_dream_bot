@@ -64,6 +64,9 @@ class RedisKeys:
     __PREFIX_GAME: str = __PREFIX_SRC + 'game_'
     GAME_LOBBY: str = __PREFIX_GAME + 'lobby {number}'
 
+    __PREFIX_CARDS: str = __PREFIX_SRC + 'cards_'
+    WORDS: str = __PREFIX_CARDS + 'words'
+
 
 redis_engine: Redis = Redis(
     host=settings.REDIS_HOST,
