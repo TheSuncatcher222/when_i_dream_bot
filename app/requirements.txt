@@ -1,21 +1,24 @@
 # Aiogram
-aiogram~=3.20                     # Telegram Bot.
+aiogram~=3.20                   # Telegram Bot.
 
 # Alembic.
-alembic~=1.13                     # Для контроля миграций в базе данных.
+alembic~=1.13                   # Для контроля миграций в базе данных.
 
 # APScheduler.
-APScheduler~=3.11                 # Планировщик задач.
+APScheduler~=3.11               # Планировщик задач.
 
 # Database.
-asyncpg~=0.29                     # Для работы с PostgreSQL в асинхронном режиме.
-psycopg2-binary~=2.9              # Для работы с PostgreSQL в синхронном режиме (в APScheduler)
-sqlalchemy~=2.0                   # ORM.
-redis~=5.2                        # Для работы с Redis.
+asyncpg~=0.29                   # Для работы с PostgreSQL в асинхронном режиме.
+psycopg2-binary~=2.9            # Для работы с PostgreSQL в синхронном режиме (в APScheduler)
+sqlalchemy~=2.0                 # ORM.
+redis~=5.2                      # Для работы с Redis.
+
+# Images.
+pillow~=11.2                    # Для работы с изображениями.
 
 # Logs.
-python-json-logger~=2.0             # Для логирования в JSON формате.
+python-json-logger~=2.0         # Для логирования в JSON формате.
 
 # Pydantic.
-pydantic~=2.11                    # Для валидации данных.
-pydantic-settings~=2.3            # Для загрузки переменных окружения из .env файлов.
+pydantic~=2.11                  # Для валидации данных.
+pydantic-settings~=2.3          # Для загрузки переменных окружения из .env файлов.
