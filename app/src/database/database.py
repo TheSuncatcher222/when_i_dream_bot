@@ -59,7 +59,10 @@ class TableNames:
 class RedisKeys:
     """Класс представления Redis ключей."""
 
-    __PREFIX_SRC: str = 'src_cache_'
+    __PREFIX_SRC: str = 'src_'
+
+    __PREFIX_GAME: str = __PREFIX_SRC + 'game_'
+    GAME_LOBBY: str = __PREFIX_GAME + 'lobby {number}'
 
 
 redis_engine: Redis = Redis(
