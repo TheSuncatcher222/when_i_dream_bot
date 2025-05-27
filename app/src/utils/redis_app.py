@@ -64,7 +64,7 @@ def redis_get_ttl(key: str) -> int:
     return redis_engine.ttl(name=key)
 
 
-def redis_set(key: str, value: any, ex_sec: int = 10) -> None:
+def redis_set(key: str, value: any, ex_sec: int | None = None) -> None:
     """
     Сохраняет данные в Redis по указанному ключу.
 
@@ -72,6 +72,10 @@ def redis_set(key: str, value: any, ex_sec: int = 10) -> None:
     """
     redis_engine.set(
         name=key,
-        value=json.dumps(value) if isinstance(value, dict) else value,
+        value=(
+            json.dumps(value)
+            if isinstance(value, (dict, list, tuple, int, float, bool, type(None)))
+            else value
+        ),
         ex=ex_sec,
     )
