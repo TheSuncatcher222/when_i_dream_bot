@@ -6,6 +6,7 @@ from sqlalchemy.orm import (
     Mapped,
     mapped_column,
 )
+from sqlalchemy.sql import expression
 
 from app.src.database.database import (
     Base,
@@ -38,6 +39,13 @@ class Image(Base):
         comment='id в Telegram',
         unique=True,
     )
+    id_telegram_rotated: Mapped[str] = mapped_column(
+        String(length=ImageParams.ID_TELEGRAM_LEN_MAX),
+        comment='id в Telegram (перевернутое)',
+        unique=True,
+        nullable=True,
+        server_default=expression.null(),
+    )
     local_path: Mapped[str] = mapped_column(
         String(length=ImageParams.LOCAL_PATH_LEN_MAX),
         comment='путь',
@@ -47,9 +55,6 @@ class Image(Base):
         String(length=ImageParams.NAME_LEN_MAX),
         comment='название',
         unique=True,
-    )
-    order: Mapped[int] = mapped_column(
-        comment='порядковый номер',
     )
     category: Mapped[ImageCategory] = mapped_column(
         Integer,
