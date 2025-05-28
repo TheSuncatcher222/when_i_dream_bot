@@ -9,10 +9,6 @@ from aiogram import (
     F,
 )
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import (
-    StatesGroup,
-    State,
-)
 from aiogram.types import Message
 
 from app.src.bot.bot import bot
@@ -24,8 +20,10 @@ from app.src.database.database import (
 )
 from app.src.models.user import User
 from app.src.utils.game import (
+    GameForm,
     form_lobby_host_message,
     process_in_game,
+    process_in_game_penalty,
     send_game_roles_messages,
     send_game_start_messages,
     setup_game_data,
@@ -47,18 +45,6 @@ from app.src.validators.game import GameParams
 router: Router = Router()
 
 
-class Form(StatesGroup):
-    """
-    Состояния формы роутера.
-    """
-
-    in_lobby = State()
-    in_game = State()
-
-    # TODO. Будет много сообщений, лучше вести список тех, что надо удалить.
-    _init_message_id: int
-    _game_number: int
-
 
 @router.message(F.text == RoutersCommands.GAME_CREATE)
 async def command_game_create(
@@ -79,7 +65,7 @@ async def command_game_create(
         _init_message_id=message.message_id,
         _game_number=number,
     )
-    await state.set_state(state=Form.in_lobby)
+    await state.set_state(state=GameForm.in_lobby)
 
     await message.answer(
         text=form_lobby_host_message(game_number=number),
@@ -87,7 +73,7 @@ async def command_game_create(
     )
 
 
-@router.message(Form.in_lobby)
+@router.message(GameForm.in_lobby)
 async def start_game(
     message: Message,
     state: FSMContext,
@@ -104,19 +90,29 @@ async def start_game(
     # TODO. Учесть, вдруг игра будет удален из Redis.
     state_data: dict[str, Any] = await state.get_data()
     game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
-    if not await __validate_players_count(game=game):
+    if not await __validate_players_count(game=game, message=message):
         return
 
-    await state.set_state(state=Form.in_game)
+    await state.set_state(state=GameForm.in_game)
     await __start_game(game=game)
 
 
-@router.message(Form.in_game)
+@router.message(GameForm.in_game)
 async def in_game(
     message: Message,
     state: FSMContext,
 ) -> None:
     return await process_in_game(
+        message=message,
+        state=state,
+    )
+
+@router.message(GameForm.in_game_set_penalty)
+async def in_game_set_penalty(
+    message: Message,
+    state: FSMContext,
+) -> None:
+    return await process_in_game_penalty(
         message=message,
         state=state,
     )
