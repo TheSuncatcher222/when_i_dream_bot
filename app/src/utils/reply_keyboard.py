@@ -16,6 +16,7 @@ class RoutersCommands:
     SYNC_IMAGES: str = '⚠️ Синхронизировать картинки'
 
     # Common
+    CANCEL: str = 'Отмена'
     HELP: str = 'Помощь'
     HOME: str = 'Главное меню'
     GAME_CREATE: str = 'Создать игру'
