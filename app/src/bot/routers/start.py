@@ -2,10 +2,14 @@ from typing import TYPE_CHECKING
 
 from aiogram import Router
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import (
+    InputMediaPhoto,
+    Message,
+)
 
 from app.src.crud.user import user_crud
 from app.src.database.database import async_session_maker
+from app.src.utils.image import get_rules_ids_telegram
 from app.src.utils.message import delete_messages_list
 from app.src.utils.reply_keyboard import get_keyboard_main_menu
 
@@ -33,6 +37,13 @@ async def command_start(message: Message) -> None:
             'находчивость, смекалку и внутреннюю интуицию. Желаю приятных снов!'
         ),
         reply_markup=get_keyboard_main_menu(user_id_telegram=message.from_user.id),
+    )
+    await message.answer_media_group(
+        media=[
+            InputMediaPhoto(media=media_id)
+            for media_id
+            in await get_rules_ids_telegram()
+        ],
     )
 
     async with async_session_maker() as session:
