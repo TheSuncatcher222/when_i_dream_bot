@@ -2,7 +2,10 @@
 Модуль базового класса асинхронных CRUD запросов в базу данных.
 """
 
-from typing import Iterable
+from typing import (
+    Any,
+    Iterable,
+)
 
 from sqlalchemy.sql import (
     delete,
@@ -43,7 +46,7 @@ class BaseAsyncCrud():
     async def create(
         self,
         *,
-        obj_data: dict[str, any],
+        obj_data: dict[str, Any],
         session: AsyncSession,
         perform_cleanup: bool = True,
         perform_commit: bool = True,
@@ -52,7 +55,7 @@ class BaseAsyncCrud():
         await self._check_unique(obj_data=obj_data, session=session)
 
         if perform_cleanup:
-            obj_data: dict[str, any] = self._clean_obj_data_non_model_fields(obj_data=obj_data)
+            obj_data: dict[str, Any] = self._clean_obj_data_non_model_fields(obj_data=obj_data)
 
         stmt: Insert = insert(self.model).values(**obj_data).returning(self.model)
         obj: Base = (await session.execute(stmt)).scalars().first()
@@ -91,7 +94,7 @@ class BaseAsyncCrud():
         self,
         *,
         obj_id: int,
-        obj_data: dict[str, any],
+        obj_data: dict[str, Any],
         session: AsyncSession,
         perform_check_unique: bool = False,
         perform_cleanup: bool = True,
@@ -99,7 +102,7 @@ class BaseAsyncCrud():
     ) -> Base:
         """Обновляет один объект из базы данных по указанному id."""
         if perform_cleanup:
-            obj_data: dict[str, any] = self._clean_obj_data_non_model_fields(obj_data=obj_data)
+            obj_data: dict[str, Any] = self._clean_obj_data_non_model_fields(obj_data=obj_data)
 
         query: Select = select(self.model).where(self.model.id == obj_id)
         if (await session.execute(query)).scalars().first() is None:
@@ -156,7 +159,7 @@ class BaseAsyncCrud():
     async def _check_unique(
         self,
         *,
-        obj_data: dict[str, any],
+        obj_data: dict[str, Any],
         session: AsyncSession,
     ) -> None:
         """Проверяет уникальность переданных значений."""
@@ -174,14 +177,14 @@ class BaseAsyncCrud():
     def _clean_obj_data_non_model_fields(
         self,
         *,
-        obj_data: dict[str, any],
-    ) -> dict[str, any]:
+        obj_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Удаляет из переданных данных поля, которые не являются колонками модели.
         Возвращает новый словарь obj_data без удаленных полей.
 
         Атрибуты:
-            obj_data: dict[str, any] - данные для обновления объекта
+            obj_data: dict[str, Any] - данные для обновления объекта
         """
         model_valid_columns: set[str] = {
             col.name

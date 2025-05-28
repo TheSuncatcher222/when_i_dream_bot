@@ -1,3 +1,4 @@
+from typing import Any
 from random import shuffle
 
 from app.src.database.database import RedisKeys
@@ -7,7 +8,7 @@ from app.src.validators.game import GameRoles
 
 
 def form_lobby_host_message(game_number: int) -> str:
-    game: dict[str, any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=game_number))
+    game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=game_number))
     players: str = '\n'.join(player['name'] for player in game['players'].values())
     return (
         'Приветствую, капитан! Ты готов отправиться со своей командой в новое '
@@ -58,7 +59,7 @@ def get_role_description(role: str) -> str:
 
 
 
-async def setup_game_data(game: dict[str, any]) -> None:
+async def setup_game_data(game: dict[str, Any]) -> None:
     """Подготавливает данные для игры."""
     game.update(
         {
@@ -110,7 +111,7 @@ def __get_players_sleeping_order(players: list[str]) -> list[str]:
     return players
 
 
-def __set_players_roles(game: dict[str, any]) -> None:
+def __set_players_roles(game: dict[str, Any]) -> None:
     """Обновляет роли игроков в словаре игры "game"."""
     roles: list[str] = __get_players_roles(players_count=len(game['players']))
     shuffle(roles)

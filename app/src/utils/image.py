@@ -11,6 +11,7 @@ from asyncio import (
 from random import shuffle
 from re import sub as re_sub
 from pathlib import Path
+from typing import Any
 
 from aiogram.exceptions import TelegramRetryAfter
 from aiogram.types import (
@@ -144,7 +145,7 @@ async def __sync_image(
     if not await __check_if_is_needed_to_sync(obj=obj, db_obj=db_obj):
         return
 
-    obj_data: dict[str, any] = await __upload_images_to_telegram(
+    obj_data: dict[str, Any] = await __upload_images_to_telegram(
         obj=obj,
         obj_local_path=obj_local_path,
         db_obj=db_obj,
@@ -190,7 +191,7 @@ async def __upload_images_to_telegram(
     obj_local_path: str,
     db_obj: dict[str, str | int] | None,
     dir_name: str,
-) -> dict[str, any]:
+) -> dict[str, Any]:
     """Загружает картинки в telegram."""
     messages_ids: list[int] = []
     obj_data: dict[str, str] = {}

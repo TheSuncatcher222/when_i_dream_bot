@@ -6,6 +6,7 @@
 """
 
 import json
+from typing import Any
 
 from app.src.database.database import redis_engine
 
@@ -34,22 +35,22 @@ def redis_flushall() -> None:
 def redis_get(
     key: str,
     get_ttl: bool = False,
-    default: any = None,
-) -> any:
+    default: Any = None,
+) -> Any:
     """
     Извлекает данные из Redis по указанному ключу в типах данных Python.
     Если данных нет, то возвращает default.
 
     Если get_ttl=True, то возвращается TTL в секундах (-1, если ключа не существует).
     """
-    data: any = redis_engine.get(name=key)
+    data: Any = redis_engine.get(name=key)
     if data is not None:
         try:
-            data: any = json.loads(s=data)
+            data: Any = json.loads(s=data)
         except json.JSONDecodeError:
             pass
     elif default is not None:
-        data: any = default
+        data: Any = default
 
     if get_ttl:
         return data, redis_engine.ttl(name=key)
@@ -64,7 +65,7 @@ def redis_get_ttl(key: str) -> int:
     return redis_engine.ttl(name=key)
 
 
-def redis_set(key: str, value: any, ex_sec: int | None = None) -> None:
+def redis_set(key: str, value: Any, ex_sec: int | None = None) -> None:
     """
     Сохраняет данные в Redis по указанному ключу.
 
