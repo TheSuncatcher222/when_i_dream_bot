@@ -62,7 +62,7 @@ class RedisKeys:
     __PREFIX_SRC: str = 'src_'
 
     __PREFIX_GAME: str = __PREFIX_SRC + 'game_'
-    GAME_LOBBY: str = __PREFIX_GAME + 'lobby {number}'
+    GAME_LOBBY: str = __PREFIX_GAME + 'lobby_{number}'
 
     __PREFIX_CARDS: str = __PREFIX_SRC + 'cards_'
     ROLES: str = __PREFIX_CARDS + 'roles'
