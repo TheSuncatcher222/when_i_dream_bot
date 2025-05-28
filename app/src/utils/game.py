@@ -1,5 +1,8 @@
+from random import shuffle
+
 from app.src.database.database import RedisKeys
 from app.src.utils.redis_app import redis_get
+from app.src.validators.game import GameRoles
 
 
 def form_lobby_host_message(game_number: int) -> str:
@@ -33,4 +36,18 @@ def get_players_roles(players_count: int) -> list[str]:
         fairy, buka, sandman = 3, 4, 1
     elif players_count == 10:
         fairy, buka, sandman = 3, 4, 2
-    return ['fairy'] * fairy + ['buka'] * buka + ['sandman'] * sandman
+    return [GameRoles.FAIRY] * fairy + [GameRoles.BUKA] * buka + [GameRoles.SANDMAN] * sandman
+
+
+def set_players_roles(game: dict[str, any]) -> None:
+    """Обновляет роли игроков в словаре игры "game"."""
+    roles: list[str] = get_players_roles(players_count=len(game['players']))
+    shuffle(roles)
+
+    i: int = 0
+    for id_telegram, data in game['players'].items():
+        if id_telegram == game['players_sleeping_order'][game['sleeper_index']]:
+            data['role'] = GameRoles.SLEEPER
+        else:
+            data['role'] = roles[i]
+        i += 1
