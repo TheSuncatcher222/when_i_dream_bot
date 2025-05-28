@@ -75,7 +75,10 @@ KEYBOARD_LOBBY_HOST: ReplyKeyboardMarkup = make_row_keyboard(
     rows=((RoutersCommands.GAME_START,),(RoutersCommands.GAME_DROP,)),
 )
 KEYBOARD_LOBBY_SUPERVISOR: ReplyKeyboardMarkup = make_row_keyboard(
-    rows=((RoutersCommands.START_ROUND,),(RoutersCommands.GAME_DROP,)),
+    rows=(
+        (RoutersCommands.START_ROUND,),
+        (RoutersCommands.GAME_DROP,),
+    ),
 )
 KEYBOARD_LOBBY_SUPERVISOR_IN_GAME: ReplyKeyboardMarkup = make_row_keyboard(
     rows=(
