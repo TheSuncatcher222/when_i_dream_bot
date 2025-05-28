@@ -13,6 +13,19 @@ from app.src.validators.image import ImageCategory
 class ImageCrud(BaseAsyncCrud):
     """Класс CRUD запросов к базе данных к таблице Image."""
 
+    async def retrieve_all_roles_ids_telegram(
+        self,
+        *,
+        session: AsyncSession,
+    ) -> dict[str, str]:
+        """Получает список id_telegram всех карточек персонажей."""
+        query: Select = (
+            select(Image.name, Image.id_telegram)
+            .where(Image.category == ImageCategory.CHARACTERS)
+        )
+        pairs: list[tuple[int, int]] = (await session.execute(query)).scalars().all()
+        return {value[0]: value[1] for value in pairs}
+
     async def retrieve_all_rules_ids_telegram(
         self,
         *,
