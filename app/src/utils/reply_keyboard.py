@@ -23,6 +23,11 @@ class RoutersCommands:
     GAME_START: str = 'Начать игру'
     GAME_DROP: str = 'Выйти из игры'
 
+    # In game
+    YES: str = 'Да'
+    NO: str = 'Нет'
+    PENALTY: str = 'Штраф'
+
 
 def make_row_keyboard(rows: tuple[tuple[str]]) -> ReplyKeyboardMarkup:
     """
