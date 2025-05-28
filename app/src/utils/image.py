@@ -39,6 +39,16 @@ from app.src.utils.redis_app import (
 )
 
 
+async def get_role_image_cards() -> dict[str, str]:
+    """Получает id_telegram карт ролей."""
+    cards_ids: dict[str, str] | None = redis_get(key=RedisKeys.ROLES)
+    if not cards_ids:
+        async with async_session_maker() as session:
+            cards_ids: dict[str, str] = await image_crud.retrieve_all_rules_ids_telegram(session=session)
+            redis_set(key=RedisKeys.ROLES, value=cards_ids)
+    return cards_ids
+
+
 async def get_rules_ids_telegram() -> list[str]:
     """Получает список id_telegram всех карточек правил, отсортированных по порядку."""
     # TODO. Интегрировать Redis
@@ -46,8 +56,8 @@ async def get_rules_ids_telegram() -> list[str]:
         return await image_crud.retrieve_all_rules_ids_telegram(session=session)
 
 
-async def shuffle_cards() -> list[int]:
-    """Перемешивает карты для игры."""
+async def get_shuffled_words_cards() -> list[int]:
+    """Генерирует случайный порядок карт слов для игры."""
     cards_ids: list[int] = redis_get(key=RedisKeys.WORDS)
     if not cards_ids:
         async with async_session_maker() as session:
@@ -90,7 +100,8 @@ async def sync_images() -> None:
                 session=session,
             )
 
-    redis_delete(key=RedisKeys.WORDS)
+    for key in (RedisKeys.ROLES, RedisKeys.WORDS):
+        redis_delete(key=key)
 
     message: Message = await bot.send_message(
         chat_id=settings.ADMIN_NOTIFY_ID,
