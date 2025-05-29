@@ -1,4 +1,3 @@
-
 from sqlalchemy.sql import select
 from sqlalchemy.sql.selectable import Select
 
