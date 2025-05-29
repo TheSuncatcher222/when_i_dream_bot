@@ -68,6 +68,9 @@ class RedisKeys:
     ROLES: str = __PREFIX_CARDS + 'roles'
     WORDS: str = __PREFIX_CARDS + 'words'
 
+    __PREFIX_USER: str = __PREFIX_SRC + 'user_'
+    USER_GAME_LOBBY_NUMBER: str = __PREFIX_USER + 'game_lobby_number_{id_telegram}'
+
 
 redis_engine: Redis = Redis(
     host=settings.REDIS_HOST,
