@@ -1,4 +1,8 @@
-from asyncio import sleep as asyncio_sleep
+from asyncio import (
+    Task,
+    gather as asyncio_gather,
+    sleep as asyncio_sleep,
+)
 from random import (
     choices,
 )
@@ -151,14 +155,21 @@ async def __destroy_lobby(
     state: FSMContext,
 ) -> None:
     """Удаляет лобби."""
-    state_data: dict[str, Any] = await state.get_data()
-    game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
-    for player in game['players'].values():
+
+    async def __destroy_lobby_notify(chat_id: int) -> None:
+        """Задача по уведомлению игроков об удалении лобби."""
         await bot.send_message(
-            chat_id=player['chat_id'],
+            chat_id=chat_id,
             text='Игра была отменена.',
             reply_markup=KEYBOARD_HOME,
         )
+
+    state_data: dict[str, Any] = await state.get_data()
+    game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
+
+    tasks: list[Task] = [__destroy_lobby_notify(chat_id=chat_id) for chat_id in game['players'].values()]
+    await asyncio_gather(*tasks)
+
     redis_delete(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
     await state.clear()
 
