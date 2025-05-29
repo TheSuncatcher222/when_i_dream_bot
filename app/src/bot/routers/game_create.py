@@ -3,9 +3,7 @@ from asyncio import (
     gather as asyncio_gather,
     sleep as asyncio_sleep,
 )
-from random import (
-    choices,
-)
+from random import choices
 from typing import Any
 
 from aiogram import (
@@ -16,7 +14,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from app.src.bot.bot import bot
-from app.src.config.config import TimeIntervals
 from app.src.crud.user import user_crud
 from app.src.database.database import (
     async_session_maker,
@@ -27,6 +24,7 @@ from app.src.utils.game import (
     GameForm,
     form_lobby_host_message,
     process_in_game,
+    process_game_in_redis,
     set_penalty,
     send_game_roles_messages,
     send_game_start_messages,
@@ -35,8 +33,6 @@ from app.src.utils.game import (
 from app.src.utils.message import delete_messages_list
 from app.src.utils.redis_app import (
     redis_check_exists,
-    redis_delete,
-    redis_get,
     redis_set,
 )
 from app.src.utils.reply_keyboard import (
@@ -47,7 +43,6 @@ from app.src.utils.reply_keyboard import (
 from app.src.validators.game import GameParams
 
 router: Router = Router()
-
 
 
 @router.message(F.text == RoutersCommands.GAME_CREATE)
@@ -65,14 +60,9 @@ async def command_game_create(
         )
     number: str = await __create_lobby(user=user, message=message)
 
-    await state.update_data(
-        _init_message_id=message.message_id,
-        _game_number=number,
-    )
     await state.set_state(state=GameForm.in_lobby)
-
     await message.answer(
-        text=form_lobby_host_message(game_number=number),
+        text=form_lobby_host_message(message=message),
         reply_markup=KEYBOARD_LOBBY_HOST,
     )
 
@@ -83,7 +73,7 @@ async def start_game(
     state: FSMContext,
 ) -> None:
     if message.text == RoutersCommands.GAME_DROP:
-        return await __destroy_lobby(state=state)
+        return await __destroy_lobby(message=message, state=state)
 
     if message.text != RoutersCommands.GAME_START:
         return await delete_messages_list(
@@ -91,9 +81,7 @@ async def start_game(
             messages_ids=[message.message_id],
         )
 
-    # TODO. Учесть, вдруг игра будет удален из Redis.
-    state_data: dict[str, Any] = await state.get_data()
-    game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
     if not await __validate_players_count(game=game, message=message):
         return
 
@@ -133,12 +121,16 @@ async def __create_lobby(
         if redis_check_exists(key=key):
             continue
         break
-    redis_set(
-        key=key,
-        value={
+
+    redis_set(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user.id_telegram)), value=number)
+    process_game_in_redis(
+        redis_key=key,
+        set_game={
+            'redis_key': key,
+            'number': number,
+            'password': ''.join(choices('0123456789', k=4)),
             'host_user_id_telegram': user.id_telegram,
             'host_chat_id': message.chat.id,
-            'password': ''.join(choices('0123456789', k=4)),
             'players': {
                 user.id_telegram: {
                     'name': user.get_full_name(),
@@ -146,12 +138,12 @@ async def __create_lobby(
                 },
             },
         },
-        ex_sec=TimeIntervals.SECONDS_IN_1_DAY,
     )
     return number
 
 
 async def __destroy_lobby(
+    message: Message,
     state: FSMContext,
 ) -> None:
     """Удаляет лобби."""
@@ -164,13 +156,12 @@ async def __destroy_lobby(
             reply_markup=KEYBOARD_HOME,
         )
 
-    state_data: dict[str, Any] = await state.get_data()
-    game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
 
     tasks: list[Task] = [__destroy_lobby_notify(chat_id=chat_id) for chat_id in game['players'].values()]
     await asyncio_gather(*tasks)
 
-    redis_delete(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
+    process_game_in_redis(redis_key=game['redis_key'], delete=True)
     await state.clear()
 
 
