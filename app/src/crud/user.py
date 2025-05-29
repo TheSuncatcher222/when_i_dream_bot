@@ -1,4 +1,3 @@
-
 from sqlalchemy.sql import select
 from sqlalchemy.sql.selectable import Select
 
@@ -16,10 +15,20 @@ class UserCrud(BaseAsyncCrud):
         """
         Создает один объект в базе данных.
         Изменяет значение "id_telegram" в тип данных str.
+
+        Создает объект статистики достижений.
         """
+        from app.src.crud.user_achievement import user_achievement_crud
+        from app.src.crud.user_statistic import user_statistic_crud
+
         if 'id_telegram' in obj_data:
             obj_data['id_telegram'] = str(obj_data['id_telegram'])
-        return await super().create(obj_data=obj_data, session=session, perform_cleanup=perform_cleanup, perform_commit=perform_commit)
+
+        user: User = await super().create(obj_data=obj_data, session=session, perform_cleanup=perform_cleanup, perform_commit=False)
+        await user_achievement_crud.create(obj_data={'user_id': user.id}, session=session, perform_commit=False)
+        await user_statistic_crud.create(obj_data={'user_id': user.id}, session=session, perform_commit=perform_commit)
+
+        return user
 
     async def retrieve_by_id_telegram(
         self,
