@@ -1,10 +1,6 @@
 name: when_i_dream_telegram_bot
 
 
-x-common: &common-env
-  env_file:
-    - ../app/src/config/.env
-
 services:
 
   app:
@@ -21,7 +17,7 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - ../app/src/config/.env
+      - ../.env
     hostname: when-i-dream-telegram-bot-app
     restart: unless-stopped
     volumes:

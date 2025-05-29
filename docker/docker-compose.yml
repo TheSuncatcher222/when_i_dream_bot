@@ -2,7 +2,7 @@ name: when_i_dream_telegram_bot
 
 x-common: &common-env
   env_file:
-    - .env
+    - ../.env
 
 services:
 
