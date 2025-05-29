@@ -58,7 +58,7 @@ async def command_game_create(
             obj_id_telegram=message.from_user.id,
             session=session,
         )
-    number: str = await __create_lobby(user=user, message=message)
+    await __create_lobby(user=user, message=message)
 
     await state.set_state(state=GameForm.in_lobby)
     await message.answer(
@@ -139,7 +139,6 @@ async def __create_lobby(
             },
         },
     )
-    return number
 
 
 async def __destroy_lobby(
@@ -158,7 +157,7 @@ async def __destroy_lobby(
 
     game: dict[str, Any] = process_game_in_redis(message=message, get=True)
 
-    tasks: list[Task] = [__destroy_lobby_notify(chat_id=chat_id) for chat_id in game['players'].values()]
+    tasks: list[Task] = [__destroy_lobby_notify(chat_id=data['chat_id']) for data in game['players'].values()]
     await asyncio_gather(*tasks)
 
     process_game_in_redis(redis_key=game['redis_key'], delete=True)
