@@ -40,6 +40,7 @@ from app.src.utils.reply_keyboard import (
     KEYBOARD_LOBBY_SUPERVISOR,
 )
 from app.src.utils.redis_app import (
+    redis_delete,
     redis_get,
     redis_set,
 )
@@ -48,6 +49,8 @@ from app.src.validators.game import GameRoles
 
 # INFO. Словарь с игрой в конечно форме (хранится в Redis):
 # game = {
+#     'redis_key': src_game_lobby_1234',
+#     'number': 1234,
 #     'password': 1234,
 #     'round_is_started': False,
 
@@ -92,18 +95,15 @@ class GameForm(StatesGroup):
     in_game = State()
     in_game_set_penalty = State()
 
-    # TODO. Будет много сообщений, лучше вести список тех, что надо удалить.
-    _init_message_id: int
-    _game_number: int
 
-
-def form_lobby_host_message(game_number: int) -> str:
-    game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=game_number))
+def form_lobby_host_message(message: Message) -> str:
+    """Формирует сообщение для хоста лобби."""
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
     players: str = '\n'.join(player['name'] for player in game['players'].values())
     return (
         'Приветствую, капитан! Ты готов отправиться со своей командой в новое '
         'путешествие по миру снов? Отлично! Игра успешно создана!\n'
-        f'Номер: {game_number}\n'
+        f'Номер: {game['number']}\n'
         f'Пароль: {game['password']}'
         '\n\n'
         'Список сновидцев:\n'
@@ -130,6 +130,28 @@ async def process_in_game(
         await __process_in_game_start_round(game=game)
 
 
+def process_game_in_redis(
+    redis_key: str | None = None,
+    message: Message | None = None,
+    user_id_telegram: str | int | None = None,
+    get: bool = False,
+    delete: bool = False,
+    set_game: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    if not redis_key:
+        if not user_id_telegram:
+            user_id_telegram: int = message.from_user.id
+        number: str = redis_get(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user_id_telegram)))
+        redis_key: str = RedisKeys.GAME_LOBBY.format(number=number)
+
+    if get:
+        return redis_get(key=redis_key)
+    elif delete:
+        redis_delete(key=redis_key)
+    elif set_game:
+        redis_set(key=redis_key, value=set_game)
+
+
 async def set_penalty(
     message: Message,
     state: FSMContext,
@@ -142,8 +164,7 @@ async def set_penalty(
             messages_ids=[message.message_id],
         )
 
-    state_data: dict[str, Any] = await state.get_data()
-    game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
     penalty_id_telegram: str | None = None
     for id_telegram, data in game['players'].items():
         if data['name'] == message.text:
@@ -153,7 +174,7 @@ async def set_penalty(
     if penalty_id_telegram:
         messages_ids: list[int] = [range(game['players'][str(message.from_user.id)]['last_penalty_message_id'], message.message_id + 1)]
         game['players'][penalty_id_telegram]['penalties'] += 1
-        redis_set(key=RedisKeys.GAME_LOBBY.format(number=game['game_number']), value=game)
+        process_game_in_redis(redis_key=game['redis_key'], set_game=game)
         await state.set_state(state=GameForm.in_game)
     else:
         messages_ids: list[int] = [message.message_id]
@@ -247,8 +268,6 @@ async def setup_game_data(game: dict[str, Any]) -> None:
             'round_correct_words': [],
         },
     )
-    __set_players_roles(game=game)
-
     for data in game['players'].items():
         data.update(
             {
@@ -263,6 +282,7 @@ async def setup_game_data(game: dict[str, Any]) -> None:
                 'penalties': 0,
             },
         )
+    __set_players_roles(game=game)
 
 
 def __choose_drop_game_text(
@@ -296,11 +316,8 @@ async def __game_drop(
     state: FSMContext,
 ) -> None:
     """Выводит игрока из текущей игры и удаляет все сообщения."""
-    state_data: dict[str, Any] = await state.get_data()
-    game_key: str = RedisKeys.GAME_LOBBY.format(number=state_data['_game_number'])
-    game: dict[str, Any] = redis_get(key=game_key)
-
-    await __game_drop_move_indexes(game=game, game_key=game_key, message=message)
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
+    await __game_drop_move_indexes(game=game, message=message)
 
     messages_ids: list[int] = []
     async with async_session_maker() as session:
@@ -316,7 +333,6 @@ async def __game_drop(
                 obj_data={'message_main_last_id': None},
                 session=session,
             )
-    messages_ids.extend(game['players_drop_game']['messages_to_delete'])
 
     await state.clear()
     message: Message = await message.answer(
@@ -333,7 +349,6 @@ async def __game_drop(
 
 async def __game_drop_move_indexes(
     game: dict[str, Any],
-    game_key: str,
     message: Message,
 ) -> None:
     player_index: int = game['players_sleeping_order'].index(str(message.from_user.id))
@@ -357,13 +372,12 @@ async def __game_drop_move_indexes(
         else:
             game['supervisor_index'] -= 1
         if player_index == game['sleeper_index']:
-            redis_set(key=game_key, value=game)
+            process_game_in_redis(redis_key=game['redis_key'], set_game=game)
             __process_in_game_end_round(skip_results=True)
 
-    redis_set(key=game_key, value=game)
+    process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
-# TODO. Проверить, что если человек ушел с игры - роли будут обновляться.
 def __get_players_roles(players_count: int) -> list[str]:
     """
     Формирует список ролей игроков в зависимости от количества.
@@ -436,7 +450,10 @@ async def __notify_supervisor(chat_id: int) -> None:
     )
 
 
-async def __process_in_game_answer(game: dict[str, Any], is_correct: bool) -> None:
+async def __process_in_game_answer(
+    game: dict[str, Any],
+    is_correct: bool,
+) -> None:
     """
     TODOS:
         2) Запомнить слово для пересказа сна спящим игроком.
@@ -452,9 +469,13 @@ async def __process_in_game_answer(game: dict[str, Any], is_correct: bool) -> No
 
 # TODO. CRITICAL. Дописать функционал
 async def __process_in_game_end_round(
-    game: dict[str, Any],
-    skip_results: bool = False,
 ) -> None:
+    # TODO:
+    #  1) Предварительно еще нужно учесть пересказ сна.
+    #  2) Подсчитать очки в раунде.
+    #  3.1) Закончить игру при необходимости
+    #  3.2.1) Сместить указатели
+    #  3.2.2) Отправить рассылку ролей
     ...
 
 
@@ -465,7 +486,7 @@ async def __process_in_game_penalty(
 ) -> None:
     """Обрабатывает команду "Пенальти"."""
     game['players'][str(message.from_user.id)]['last_penalty_message_id'] = message.message_id
-    redis_set(key=RedisKeys.GAME_LOBBY.format(number=game['game_number']), value=game)
+    process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
     rows: list[tuple[str]] = [(name for name in game['players'].values())] + [RoutersCommands.CANCEL]
     await message.reply(text='Кто нарушил правила мира снов?', reply_markup=make_row_keyboard(rows=rows))
@@ -510,8 +531,7 @@ async def __process_in_game_validate_and_get_game(
         )
         return
 
-    state_data: dict[str, Any] = await state.get_data()
-    game: dict[str, Any] = redis_get(key=RedisKeys.GAME_LOBBY.format(number=state_data['_game_number']))
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
     if (
         game['players_sleeping_order'][game['supervisor_index']] != message.from_user.id
         or
@@ -559,7 +579,7 @@ async def __send_new_words(game: dict[str, Any]) -> None:
     await asyncio_gather(*tasks)
 
     game['card_index'] += 1
-    redis_set(key=RedisKeys.GAME_LOBBY.format(number=game['game_number']), value=game)
+    process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
 def __set_players_roles(game: dict[str, Any]) -> None:
