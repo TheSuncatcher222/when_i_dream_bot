@@ -23,7 +23,7 @@ from app.src.utils.game import (
     GameForm,
     form_lobby_host_message,
     process_in_game,
-    process_in_game_penalty,
+    set_penalty,
     send_game_roles_messages,
     send_game_start_messages,
     setup_game_data,
@@ -112,7 +112,7 @@ async def in_game_set_penalty(
     message: Message,
     state: FSMContext,
 ) -> None:
-    return await process_in_game_penalty(
+    return await set_penalty(
         message=message,
         state=state,
     )
