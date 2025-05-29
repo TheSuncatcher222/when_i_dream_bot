@@ -31,6 +31,7 @@ class RoutersCommands:
     NO: str = 'Нет'
     PENALTY: str = 'Штраф'
     START_ROUND: str = 'Начать раунд'
+    GAME_END: str = 'Завершить игру'
 
 
 def make_row_keyboard(rows: tuple[tuple[str]]) -> ReplyKeyboardMarkup:
@@ -79,6 +80,7 @@ KEYBOARD_LOBBY_SUPERVISOR: ReplyKeyboardMarkup = make_row_keyboard(
     rows=(
         (RoutersCommands.START_ROUND,),
         (RoutersCommands.GAME_DROP,),
+        (RoutersCommands.GAME_END,),
     ),
 )
 KEYBOARD_LOBBY_SUPERVISOR_IN_GAME: ReplyKeyboardMarkup = make_row_keyboard(
@@ -86,5 +88,6 @@ KEYBOARD_LOBBY_SUPERVISOR_IN_GAME: ReplyKeyboardMarkup = make_row_keyboard(
         (RoutersCommands.ANSWER_CORRECT, RoutersCommands.ANSWER_INCORRECT),
         (RoutersCommands.PENALTY,),
         (RoutersCommands.GAME_DROP,),
+        (RoutersCommands.GAME_END,),
     ),
 )
