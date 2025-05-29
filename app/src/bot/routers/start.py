@@ -51,6 +51,8 @@ async def command_start(message: Message) -> None:
             obj_id_telegram=message.from_user.id,
             session=session,
         )
+        messages_ids: list[int] = [message.message_id]
+
         if not user:
             user: User = await user_crud.create(
                 obj_data={
@@ -63,15 +65,13 @@ async def command_start(message: Message) -> None:
                 session=session,
                 perform_commit=False,
             )
-            await delete_messages_list(
-                chat_id=message.chat.id,
-                messages_ids=[message.message_id],
-            )
-        else:
-            await delete_messages_list(
-                chat_id=message.chat.id,
-                messages_ids=list(range(user.message_main_last_id, message.message_id + 1)),
-            )
+        elif user.message_main_last_id:
+            messages_ids: list[int] = list(range(user.message_main_last_id, message.message_id + 1))
+
+        await delete_messages_list(
+            chat_id=message.chat.id,
+            messages_ids=messages_ids,
+        )
         await user_crud.update_by_id(
             obj_id=user.id,
             obj_data={
