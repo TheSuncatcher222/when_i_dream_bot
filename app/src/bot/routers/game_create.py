@@ -1,8 +1,4 @@
-from asyncio import (
-    Task,
-    gather as asyncio_gather,
-    sleep as asyncio_sleep,
-)
+from asyncio import sleep as asyncio_sleep
 from random import choices
 from typing import Any
 
@@ -13,7 +9,6 @@ from aiogram import (
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from app.src.bot.bot import bot
 from app.src.crud.user import user_crud
 from app.src.database.database import (
     async_session_maker,
@@ -24,8 +19,8 @@ from app.src.utils.game import (
     GameForm,
     form_lobby_host_message,
     process_in_game,
+    process_in_game_destroy_game_confirm,
     process_game_in_redis,
-    set_penalty,
     send_game_roles_messages,
     send_game_start_messages,
     setup_game_data,
@@ -37,7 +32,6 @@ from app.src.utils.redis_app import (
 )
 from app.src.utils.reply_keyboard import (
     RoutersCommands,
-    KEYBOARD_HOME,
     KEYBOARD_LOBBY_HOST,
 )
 from app.src.validators.game import GameParams
@@ -73,7 +67,11 @@ async def start_game(
     state: FSMContext,
 ) -> None:
     if message.text == RoutersCommands.GAME_DROP:
-        return await __destroy_lobby(message=message, state=state)
+        return await process_in_game_destroy_game_confirm(
+            message=message,
+            state=state,
+            from_lobby=True,
+        )
 
     if message.text != RoutersCommands.GAME_START:
         return await delete_messages_list(
@@ -86,25 +84,22 @@ async def start_game(
         return
 
     await state.set_state(state=GameForm.in_game)
-    await __start_game(game=game)
+    await setup_game_data(game=game)
+    await send_game_start_messages(game=game)
+    await send_game_roles_messages(game=game)
 
 
-@router.message(GameForm.in_game)
+@router.message(
+    GameForm.in_game,
+    GameForm.in_game_destroy_game,
+    GameForm.in_game_drop_game,
+    GameForm.in_game_set_penalty,
+)
 async def in_game(
     message: Message,
     state: FSMContext,
 ) -> None:
     return await process_in_game(
-        message=message,
-        state=state,
-    )
-
-@router.message(GameForm.in_game_set_penalty)
-async def in_game_set_penalty(
-    message: Message,
-    state: FSMContext,
-) -> None:
-    return await set_penalty(
         message=message,
         state=state,
     )
@@ -139,36 +134,6 @@ async def __create_lobby(
             },
         },
     )
-
-
-async def __destroy_lobby(
-    message: Message,
-    state: FSMContext,
-) -> None:
-    """Удаляет лобби."""
-
-    async def __destroy_lobby_notify(chat_id: int) -> None:
-        """Задача по уведомлению игроков об удалении лобби."""
-        await bot.send_message(
-            chat_id=chat_id,
-            text='Игра была отменена.',
-            reply_markup=KEYBOARD_HOME,
-        )
-
-    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
-
-    tasks: list[Task] = [__destroy_lobby_notify(chat_id=data['chat_id']) for data in game['players'].values()]
-    await asyncio_gather(*tasks)
-
-    process_game_in_redis(redis_key=game['redis_key'], delete=True)
-    await state.clear()
-
-
-async def __start_game(game: dict) -> None:
-    """Начинает игру."""
-    await setup_game_data(game=game)
-    await send_game_start_messages(game=game)
-    await send_game_roles_messages(game=game)
 
 
 async def __validate_players_count(
