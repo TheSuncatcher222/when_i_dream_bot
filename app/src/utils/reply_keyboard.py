@@ -15,23 +15,25 @@ class RoutersCommands:
     PING: str = '⚠️ Пинг'
     SYNC_IMAGES: str = '⚠️ Синхронизировать картинки'
 
-    # Common
+    # Общее.
     CANCEL: str = 'Отмена'
     HELP: str = 'Помощь'
+    NO: str = 'Нет'
+    YES: str = 'Да'
     HOME: str = 'Главное меню'
+
+    # Управление лобби.
     GAME_CREATE: str = 'Создать игру'
     GAME_JOIN: str = 'Присоединиться к игре'
     GAME_START: str = 'Начать игру'
-    GAME_DROP: str = 'Выйти из игры'
 
-    # In game
-    ANSWER_CORRECT: str = '✅'
-    ANSWER_INCORRECT: str = '❌'
-    YES: str = 'Да'
-    NO: str = 'Нет'
-    PENALTY: str = 'Штраф'
+    # Управление игрой.
+    GAME_DROP: str = 'Выйти из игры'
+    GAME_DESTROY: str = 'Завершить игру'
+    PENALTY: str = 'Выдать штраф'
     START_ROUND: str = 'Начать раунд'
-    GAME_END: str = 'Завершить игру'
+    WORD_CORRECT: str = '✅'
+    WORD_INCORRECT: str = '❌'
 
 
 def make_row_keyboard(rows: tuple[tuple[str]]) -> ReplyKeyboardMarkup:
@@ -80,14 +82,17 @@ KEYBOARD_LOBBY_SUPERVISOR: ReplyKeyboardMarkup = make_row_keyboard(
     rows=(
         (RoutersCommands.START_ROUND,),
         (RoutersCommands.GAME_DROP,),
-        (RoutersCommands.GAME_END,),
+        (RoutersCommands.GAME_DESTROY,),
     ),
 )
 KEYBOARD_LOBBY_SUPERVISOR_IN_GAME: ReplyKeyboardMarkup = make_row_keyboard(
     rows=(
-        (RoutersCommands.ANSWER_CORRECT, RoutersCommands.ANSWER_INCORRECT),
+        (RoutersCommands.WORD_CORRECT, RoutersCommands.WORD_INCORRECT),
         (RoutersCommands.PENALTY,),
         (RoutersCommands.GAME_DROP,),
-        (RoutersCommands.GAME_END,),
+        (RoutersCommands.GAME_DESTROY,),
     ),
+)
+KEYBOARD_YES_NO: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=((RoutersCommands.YES, RoutersCommands.NO),),
 )
