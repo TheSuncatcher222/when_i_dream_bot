@@ -15,6 +15,19 @@ from app.src.models.user_statistic import UserStatistic
 class UserStatisticCrud(BaseAsyncCrud):
     """Класс CRUD запросов к базе данных к таблице UserStatistic."""
 
+    async def retrieve_by_user_id(
+        self,
+        *,
+        user_id: int,
+        session: AsyncSession,
+    ) -> UserStatistic | None:
+        """Получает один объект из базы данных по указанному id."""
+        query: Select = select(UserStatistic).where(UserStatistic.user_id == user_id)
+        result: UserStatistic | None = (await session.execute(query)).scalars().first()
+        if result is None:
+            self._raise_value_error_not_found(id=user_id)
+        return result
+
     async def update_by_user_id(
         self,
         *,

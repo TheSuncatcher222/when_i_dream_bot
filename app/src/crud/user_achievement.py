@@ -15,6 +15,19 @@ from app.src.models.user_achievement import UserAchievement
 class UserAchievementCrud(BaseAsyncCrud):
     """Класс CRUD запросов к базе данных к таблице UserAchievement."""
 
+    async def retrieve_by_user_id(
+        self,
+        *,
+        user_id: int,
+        session: AsyncSession,
+    ) -> UserAchievement | None:
+        """Получает один объект из базы данных по указанному id."""
+        query: Select = select(UserAchievement).where(UserAchievement.user_id == user_id)
+        result: UserAchievement | None = (await session.execute(query)).scalars().first()
+        if result is None:
+            self._raise_value_error_not_found(id=user_id)
+        return result
+
     async def update_by_user_id(
         self,
         *,
