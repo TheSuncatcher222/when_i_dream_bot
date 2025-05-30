@@ -1,9 +1,17 @@
+from datetime import tzinfo
 from pathlib import Path
 
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
 )
+from pytz import timezone
+
+
+class Timezones:
+    """Класс представления временных зон."""
+
+    MOSCOW: tzinfo = timezone('Europe/Moscow')
 
 
 class Dirs:
