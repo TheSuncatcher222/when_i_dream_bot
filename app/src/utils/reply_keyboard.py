@@ -18,18 +18,19 @@ class RoutersCommands:
     # Общее.
     CANCEL: str = 'Отмена'
     HELP: str = 'Помощь'
+    HELP_RULES: str = 'Правила игры'
     NO: str = 'Нет'
     YES: str = 'Да'
     HOME: str = 'Главное меню'
 
     # Управление лобби.
-    GAME_CREATE: str = 'Создать игру'
-    GAME_JOIN: str = 'Присоединиться к игре'
-    GAME_START: str = 'Начать игру'
+    GAME_CREATE: str = 'Создать сновидение'
+    GAME_JOIN: str = 'Присоединиться ко сну'
+    GAME_START: str = 'Начать путешествие'
 
     # Управление игрой.
-    GAME_DROP: str = 'Выйти из игры'
-    GAME_DESTROY: str = 'Завершить игру'
+    GAME_DROP: str = 'Выйти из путешествия'
+    GAME_DESTROY: str = 'Завершить путешествие'
     PENALTY: str = 'Выдать штраф'
     START_ROUND: str = 'Начать раунд'
     WORD_CORRECT: str = '✅'
@@ -69,6 +70,12 @@ def get_keyboard_main_menu(user_id_telegram: int | str) -> ReplyKeyboardMarkup:
     return make_row_keyboard(rows=keyboard)
 
 
+KEYBOARD_HELP: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=(
+        (RoutersCommands.HELP_RULES,),
+        (RoutersCommands.HOME,),
+    ),
+)
 KEYBOARD_HOME: ReplyKeyboardMarkup = make_row_keyboard(
     rows=((RoutersCommands.HOME,),),
 )
