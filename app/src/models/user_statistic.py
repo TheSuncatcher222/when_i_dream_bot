@@ -53,6 +53,10 @@ class UserStatistic(Base):
         comment='Количество очков за песочного человека',
         server_default='0',
     )
+    total_score_sleeper: Mapped[int] = mapped_column(
+        comment='Количество очков за спящего',
+        server_default='0',
+    )
     total_wins: Mapped[int] = mapped_column(
         comment='Общее количество побед',
         server_default='0',
