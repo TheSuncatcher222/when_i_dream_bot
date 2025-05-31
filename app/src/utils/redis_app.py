@@ -5,6 +5,8 @@
 осуществляется через функции redis_get и redis_set соответственно.
 """
 
+# TODO: перейти на aioredis
+
 import json
 from typing import Any
 
@@ -80,3 +82,19 @@ def redis_set(key: str, value: Any, ex_sec: int | None = None) -> None:
         ),
         ex=ex_sec,
     )
+
+def redis_sset_process(
+    key,
+    get: bool=False,
+    add_value: bool=False,
+    remove_value: bool=False,
+) -> None:
+    """
+    Обновляет данные в Redis Set по указанному ключу.
+    """
+    if get:
+        return redis_engine.smembers(key)
+    elif add_value:
+        redis_engine.sadd(key, add_value)
+    elif remove_value:
+        redis_engine.srem(key, remove_value)
