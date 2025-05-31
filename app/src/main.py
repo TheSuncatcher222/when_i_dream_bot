@@ -11,7 +11,16 @@ from app.src.bot.dispatcher import dp
 from app.src.scheduler.scheduler import scheduler
 
 
+def on_startup() -> None:
+    """Выполняет действия при запуске бота."""
+    # INFO. Очистка кэша лобби.
+    from app.src.database.database import RedisKeys
+    from app.src.utils.redis_app import redis_delete
+    redis_delete(key=RedisKeys.GAME_LOBBIES_AVALIABLE)
+
+
 async def main() -> None:
+    on_startup()
     scheduler.start()
     await dp.start_polling(bot)
 
