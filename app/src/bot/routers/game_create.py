@@ -18,6 +18,7 @@ from app.src.models.user import User
 from app.src.utils.game import (
     GameForm,
     form_lobby_host_message,
+    process_avaliable_game_numbers,
     process_in_game,
     process_in_game_destroy_game_confirm,
     process_game_in_redis,
@@ -55,10 +56,14 @@ async def command_game_create(
     await __create_lobby(user=user, message=message)
 
     await state.set_state(state=GameForm.in_lobby)
-    await message.answer(
+    answer: Message =await message.answer(
         text=form_lobby_host_message(message=message),
         reply_markup=KEYBOARD_LOBBY_HOST,
     )
+
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
+    game['host_lobby_message_id'] = answer.message_id
+    process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
 @router.message(GameForm.in_lobby)
@@ -134,6 +139,7 @@ async def __create_lobby(
             },
         },
     )
+    process_avaliable_game_numbers(add_number=number)
 
 
 async def __validate_players_count(
