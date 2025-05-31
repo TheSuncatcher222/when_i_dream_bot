@@ -11,11 +11,13 @@ async def delete_messages_list(
     chat_id: int,
     messages_ids: list[int],
     raise_exception: bool = False,
+    reverse: bool = True,
 ) -> None:
     """
     Удаляет указанные сообщения в телеграм чате/группе.
     """
-    messages_ids.reverse()
+    if reverse:
+        messages_ids.reverse()
     for message_id in messages_ids:
         try:
             await bot(DeleteMessage(chat_id=chat_id, message_id=message_id))
