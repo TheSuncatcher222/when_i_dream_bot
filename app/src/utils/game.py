@@ -56,6 +56,7 @@ from app.src.utils.redis_app import (
     redis_delete,
     redis_get,
     redis_set,
+    redis_sset_process,
 )
 from app.src.validators.game import GameRoles
 
@@ -70,6 +71,7 @@ from app.src.validators.game import GameRoles
 
 #     'host_user_id_telegram': 12345678,
 #     'host_chat_id': 87654321,
+#     'host_lobby_message_id': 123,
 
 #     'cards_ids': [abcd123..., dcba231..., ...],
 #     'card_index: 0,
@@ -106,10 +108,14 @@ class GameForm(StatesGroup):
     """
 
     in_lobby = State()
+    in_lobby_select_game = State()
+    in_lobby_enter_password = State()
     in_game = State()
     in_game_destroy_game = State()
     in_game_drop_game = State()
     in_game_set_penalty = State()
+
+    _join_game_number: str
 
 
 # -----------------------------------------------------------------------------
@@ -117,10 +123,13 @@ class GameForm(StatesGroup):
 # -----------------------------------------------------------------------------
 
 
-def form_lobby_host_message(message: Message) -> str:
+def form_lobby_host_message(
+    message: Message | None = None,
+    redis_key: str | None = None,
+) -> str:
     """Формирует сообщение для хоста лобби."""
-    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
-    players: str = '\n'.join(player['name'] for player in game['players'].values())
+    game: dict[str, Any] = process_game_in_redis(message=message, redis_key=redis_key, get=True)
+    players: str = '\n'.join(f'- {player["name"]}' for player in game['players'].values())
     return (
         'Приветствую, капитан! Ты готов отправиться со своей командой в новое '
         'путешествие по миру снов? Отлично! Игра успешно создана!\n'
@@ -129,6 +138,23 @@ def form_lobby_host_message(message: Message) -> str:
         '\n\n'
         'Список сновидцев:\n'
         f'{players}'
+    )
+
+
+def process_avaliable_game_numbers(
+    get: bool = False,
+    add_number: str | None = None,
+    remove_number: str | None = None,
+) -> list[str] | None:
+    """
+    Используя Redis Set, возвращает или модифицирует
+    список номеров доступных игр.
+    """
+    return redis_sset_process(
+        key=RedisKeys.GAME_LOBBIES_AVALIABLE,
+        get=get,
+        add_value=add_number,
+        remove_value=remove_number,
     )
 
 
@@ -325,7 +351,7 @@ async def process_in_game_destroy_game_confirm(
             reply_markup=KEYBOARD_HOME,
         )
 
-    game: dict[str, any] = process_game_in_redis(message=message, get=True)
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
 
     # INFO. Из лобби подтверждение не требуется.
     if not from_lobby:
@@ -377,7 +403,7 @@ async def __process_in_game_drop_game(
     state: FSMContext,
 ) -> None:
     """Обрабатывает команду "Выйти из игры"."""
-    game: dict[str, any] = process_game_in_redis(message=message, get=True)
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
     game['players'][str(message.from_user.id)]['last_drop_game_message_id'] = message.message_id
 
     await state.set_state(state=GameForm.in_game_destroy_game)
@@ -399,7 +425,7 @@ async def __process_in_game_drop_game_confirm(
             messages_ids=[message.message_id],
         )
 
-    game: dict[str, any] = process_game_in_redis(message=message, get=True)
+    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
 
     if message.text == RoutersCommands.NO:
         await state.set_state(state=GameForm.in_game)
@@ -454,15 +480,15 @@ async def __process_in_game_drop_game_confirm(
 
 
 
-    async with async_session_maker() as session:
-        user: User = await user_crud.retrieve_by_id_telegram(obj_id_telegram=message.from_user.id, session=session)  # await
-    process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+    # async with async_session_maker() as session:
+    #     user: User = await user_crud.retrieve_by_id_telegram(obj_id_telegram=message.from_user.id, session=session)  # await
+    # process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
-    tasks: list[Task] = [
-        asyncio_create_task(__send_end_game_message(chat_id=data['chat_id']))
-        for data in game['players'].values()
-    ]
-    await asyncio_gather(*tasks)
+    # tasks: list[Task] = [
+    #     asyncio_create_task(__send_end_game_message(chat_id=data['chat_id']))
+    #     for data in game['players'].values()
+    # ]
+    # await asyncio_gather(*tasks)
 
 
 async def __process_in_game_set_penalty(
@@ -654,7 +680,7 @@ async def send_game_roles_messages(game: dict[str, Any]) -> None:
 
     async def __send_game_roles_message(
         id_telegram: str,
-        player_data: dict[str, any],
+        player_data: dict[str, Any],
         roles_images: dict[str, str],
         supervisor_id_telegram: str,
     ):
@@ -797,7 +823,7 @@ def __get_role_description(role: str) -> str:
         )
     if role == GameRoles.SUPERVISOR:
         return (
-            'В этом раунде ты также — хранитель сна. Ты следишь за тем, как '
+            'В этом раунде ты также — Хранитель сна. Ты следишь за тем, как '
             'сновидец проходит свой путь, и видишь всё: правду, ложь и колебания. '
             'Отмечай верно или ошибочно были названы слова, раздавай пенальти, когда '
             'кто-то нарушает законы царства снов. И не забывай — ты тоже играешь.'
@@ -805,7 +831,7 @@ def __get_role_description(role: str) -> str:
 
 
 async def __notify_supervisor(chat_id: int) -> None:
-    """Уведомляет хранителя сна о его роли."""
+    """Уведомляет Хранителя сна о его роли."""
     await bot.send_message(
         chat_id=chat_id,
         text=__get_role_description(role=GameRoles.SUPERVISOR),
