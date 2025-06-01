@@ -132,6 +132,7 @@ class GameForm(StatesGroup):
 # -----------------------------------------------------------------------------
 
 
+# INFO. Протестировано ✅
 def form_lobby_host_message(
     message: Message | None = None,
     redis_key: str | None = None,
@@ -150,6 +151,7 @@ def form_lobby_host_message(
     )
 
 
+# INFO. Протестировано ✅
 def process_avaliable_game_numbers(
     get: bool = False,
     add_number: str | None = None,
@@ -212,6 +214,7 @@ async def setup_game_data(game: dict[str, Any]) -> None:
 
             'round_correct_count': 0,
             'round_incorrect_count': 0,
+            'round_user_retell_dream_correct': False,
             'round_correct_words': [],
         },
     )
@@ -221,13 +224,14 @@ async def setup_game_data(game: dict[str, Any]) -> None:
                 'messages_to_delete': [],
                 'card_message_last_id': None,
                 'set_penalty_last_id': None,
-
-                'score': 0,
-                'score_buka': 0,
-                'score_fairy': 0,
-                'score_sandman': 0,
-                'score_sleeper': 0,
-                'penalties': 0,
+                'scores': {
+                    'total_penalties': 0,
+                    'total_score_buka': 0,
+                    'total_score_fairy': 0,
+                    'total_score_sandman': 0,
+                    'total_score_sleeper': 0,
+                },
+                'achievements': {},
             },
         )
     __set_players_roles(game=game)
@@ -353,11 +357,18 @@ async def process_in_game_destroy_game_confirm(
 ) -> None:
     """Обрабатывает результат ответа на команду "Завершить игру"."""
 
-    async def __send_destroy_game_message(chat_id: int) -> None:
+    async def __send_destroy_game_message(
+        chat_id: int,
+        supervisor_chat_id: int,
+    ) -> None:
         """Задача по уведомлению игроков о принудительном завершении игры."""
+        if chat_id == supervisor_chat_id:
+            text: str = 'Сон был прерван..'
+        else:
+            text: str = 'Хранитель сна прервал твое путешествие..',
         await bot.send_message(
             chat_id=chat_id,
-            text='Хранитель сна прервал твое путешествие..',
+            text=text,
             reply_markup=KEYBOARD_HOME,
         )
 
@@ -384,6 +395,7 @@ async def process_in_game_destroy_game_confirm(
 
     game['status'] = GameStatus.FINISHED
     process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+    process_avaliable_game_numbers(remove_number=game['number'])
 
     if not from_lobby:
         scheduler.remove_job(job_id=SchedulerJobNames.GAME_END_ROUND.format(number=game['number']))
@@ -402,7 +414,12 @@ async def process_in_game_destroy_game_confirm(
     await state.set_state(state=GameForm.in_game)
 
     tasks: list[Task] = [
-        asyncio_create_task(__send_destroy_game_message(chat_id=data['chat_id']))
+        asyncio_create_task(
+            __send_destroy_game_message(
+                chat_id=data['chat_id'],
+                supervisor_chat_id=message.chat.id,
+            ),
+        )
         for data in game['players'].values()
     ]
     await asyncio_gather(*tasks)
