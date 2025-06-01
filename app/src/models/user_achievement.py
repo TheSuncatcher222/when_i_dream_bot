@@ -40,7 +40,7 @@ class UserAchievement(Base):
         comment='Cон на яву',
         server_default='0',
     )
-    penalty_master: Mapped[int] = mapped_column(
+    top_penalties: Mapped[int] = mapped_column(
         comment='Кайфоломщик',
         server_default='0',
     )
