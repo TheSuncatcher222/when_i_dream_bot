@@ -37,39 +37,43 @@ class UserStatistic(Base):
 
     # Fields.
 
-    total_score: Mapped[int] = mapped_column(
-        comment='Общее количество очков',
-        server_default='0',
+    last_game_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        comment='Дата и время последней игры',
+        nullable=True,
+        server_default=expression.null(),
     )
-    total_score_buka: Mapped[int] = mapped_column(
-        comment='Количество очков за буку',
-        server_default='0',
-    )
-    total_score_fairy: Mapped[int] = mapped_column(
-        comment='Количество очков за фею',
-        server_default='0',
-    )
-    total_score_sandman: Mapped[int] = mapped_column(
-        comment='Количество очков за песочного человека',
-        server_default='0',
-    )
-    total_score_sleeper: Mapped[int] = mapped_column(
-        comment='Количество очков за спящего',
-        server_default='0',
-    )
-    total_wins: Mapped[int] = mapped_column(
-        comment='Общее количество побед',
+    total_penalties: Mapped[int] = mapped_column(
+        comment='Общее количество штрафов',
         server_default='0',
     )
     total_quits: Mapped[int] = mapped_column(
         comment='Общее количество выходов из игры',
         server_default='0',
     )
-    last_game_date: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        comment='Последняя игра',
-        nullable=True,
-        server_default=expression.null(),
+    total_score: Mapped[int] = mapped_column(
+        comment='Общее количество очков',
+        server_default='0',
+    )
+    total_score_buka: Mapped[int] = mapped_column(
+        comment='Общее количество очков за буку',
+        server_default='0',
+    )
+    total_score_fairy: Mapped[int] = mapped_column(
+        comment='Общее количество очков за фею',
+        server_default='0',
+    )
+    total_score_sandman: Mapped[int] = mapped_column(
+        comment='Общее количество очков за песочного человека',
+        server_default='0',
+    )
+    total_score_sleeper: Mapped[int] = mapped_column(
+        comment='Общее количество очков за сновидца',
+        server_default='0',
+    )
+    total_wins: Mapped[int] = mapped_column(
+        comment='Общее количество побед',
+        server_default='0',
     )
 
     # Foreign keys.
