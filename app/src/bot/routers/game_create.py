@@ -126,13 +126,12 @@ async def __create_lobby(
     process_game_in_redis(
         redis_key=key,
         set_game={
-            'redis_key': key,
             'number': number,
             'password': ''.join(choices('0123456789', k=4)),
-            'host_user_id_telegram': user.id_telegram,
+            'redis_key': key,
             'host_chat_id': message.chat.id,
             'players': {
-                user.id_telegram: {
+                str(user.id_telegram): {
                     'name': user.get_full_name(),
                     'chat_id': message.chat.id,
                 },
