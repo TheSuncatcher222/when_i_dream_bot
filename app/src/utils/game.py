@@ -8,6 +8,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+from math import abs
 from typing import Any
 from random import (
     choice,
@@ -58,47 +59,55 @@ from app.src.utils.redis_app import (
     redis_set,
     redis_sset_process,
 )
-from app.src.validators.game import GameRoles
-
+from app.src.validators.game import (
+    GameRoles,
+    GameStatus,
+)
 
 # INFO. Словарь с игрой в конечно форме (хранится в Redis):
 # game = {
-#     'redis_key': src_game_lobby_1234',
 #     'number': '1234',
 #     'password': '1234',
-#     'round_is_started': False,
-#     'ended': False,
-
-#     'host_user_id_telegram': 12345678,
+#     'redis_key': src_game_lobby_1234',
+#     'status': lobby,
+#
 #     'host_chat_id': 87654321,
 #     'host_lobby_message_id': 123,
-
+#
+#     # TODO. Можно ограничить количество карт. В игре участвует N игроков,
+#             в раунде используется не более N слов, тогда нужно N*M слов.
 #     'cards_ids': [abcd123..., dcba231..., ...],
 #     'card_index: 0,
-
+#
 #     'players': {
-#         12345678: {
+#         '12345678': {
 #             'name': 'Иван Иванов (@iVan)',
 #             'chat_id': 87654321,
+
 #             'messages_to_delete': [],
 #             'card_message_last_id'
-
+#
 #             'role': 'buka',
-#             'score': 0,
-#             'score_buka': 0,
-#             'score_fairy': 0,
-#             'score_sandman': 0,
-#             'penalties': 0,
+#             'scores': {
+#                   'total_penalties': 0,
+#                   'total_score_buka': 0,
+#                   'total_score_fairy': 0,
+#                   'total_score_sandman': 0,
+#                   'total_score_sleeper': 0,
+#             },
+#             'achievements': {},
 #         },
 #         ...
 #     },
+#
 #     'players_sleeping_order': [12345678, 56781234, ...],
 #     'sleeper_index': 0,
 #     'supervisor_index': 1,
 
 #     'round_correct_count': 0,
 #     'round_incorrect_count': 0,
-#     'round_words': ['word1', 'word2', 'word3', ...],
+#     'round_user_retell_dream_correct': True,
+#     'round_correct_words': ['word1', 'word2', 'word3', ...],
 # }
 
 
@@ -192,8 +201,7 @@ async def setup_game_data(game: dict[str, Any]) -> None:
     """Подготавливает данные для игры."""
     game.update(
         {
-            'round_is_started': False,
-            'ended': False,
+            'status': GameStatus.PREPARE_NEXT_ROUND,
 
             'cards_ids': await get_shuffled_words_cards(),
             'card_index': 0,
@@ -218,6 +226,7 @@ async def setup_game_data(game: dict[str, Any]) -> None:
                 'score_buka': 0,
                 'score_fairy': 0,
                 'score_sandman': 0,
+                'score_sleeper': 0,
                 'penalties': 0,
             },
         )
@@ -255,7 +264,7 @@ async def process_in_game(
     elif state_value == GameForm.in_game_set_penalty:
         return await __process_in_game_set_penalty_confirm(message=message, state=state)
 
-    # INFO. Фиксация ответа спящего игрока.
+    # INFO. Фиксация ответа сновидца.
     elif message.text == RoutersCommands.WORD_CORRECT:
         await __process_in_game_answer(game=game, is_correct=True, message=message)
     elif message.text == RoutersCommands.WORD_INCORRECT:
@@ -295,8 +304,9 @@ async def __process_in_game_validate_message_text(
         return True
 
     # INFO. Может придти от любого игрока (в том числе из состояния GameForm.in_lobby!),
-    #       но только если игра в состоянии game['ended'] == True.
-    if game['ended']:
+    #       но только если игра в состоянии game['status'] == GameStatus.FINISHED
+    #       (завершена по любой причине).
+    if game['status'] == GameStatus.FINISHED:
         if message.text == RoutersCommands.HOME:
             return True
 
@@ -309,14 +319,14 @@ async def __process_in_game_validate_message_text(
         RoutersCommands.WORD_CORRECT,
         RoutersCommands.WORD_INCORRECT,
         RoutersCommands.PENALTY,
-        # INFO. Может придти только если game['round_is_started'] == False.
+        # INFO. Может придти только если game['status'] == GameStatus.PREPARE_NEXT_ROUND.
         RoutersCommands.START_ROUND,
         RoutersCommands.GAME_DESTROY,
         RoutersCommands.HOME,
     ):
         if str(message.from_user.id) == game['players_sleeping_order'][game['supervisor_index']]:
             if message.text == RoutersCommands.START_ROUND:
-                if not game['round_is_started']:
+                if game['status'] == GameStatus.PREPARE_NEXT_ROUND:
                     return True
             else:
                 return True
@@ -372,7 +382,7 @@ async def process_in_game_destroy_game_confirm(
                 ),
             )
 
-    game['ended'] = True
+    game['status'] = GameStatus.FINISHED
     process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
     if not from_lobby:
@@ -570,7 +580,7 @@ async def __process_in_game_answer(
     message: Message,
 ) -> None:
     """
-    Фиксирует результат ответа спящего игрока и слово для
+    Фиксирует результат ответа сновидца и слово для
     проведения тура по пересказу сна в данных игровой сессии
     и отправляет новую карточку слова игрокам.
     """
@@ -590,7 +600,7 @@ async def __process_in_game_answer(
 
 async def __process_in_game_start_round(game: dict[str, Any]) -> None:
     """Обрабатывает команду "Начать раунд"."""
-    game['round_is_started'] = True
+    game['status'] = GameStatus.ROUND_IS_STARTED
     scheduler.add_job(
         id=SchedulerJobNames.GAME_END_ROUND.format(number=game['number']),
         func=__process_in_game_end_round,
@@ -654,6 +664,7 @@ async def __process_in_game_end_round_confirm(
 # -----------------------------------------------------------------------------
 
 
+# INFO. Протестировано ✅
 def process_game_in_redis(
     redis_key: str | None = None,
     message: Message | None = None,
@@ -710,6 +721,7 @@ async def send_game_roles_messages(game: dict[str, Any]) -> None:
     return await asyncio_gather(*tasks)
 
 
+# INFO. Протестировано ✅
 def __choose_drop_game_text(
     is_leave: bool = False,
     is_run_out_of_players: bool = False,
@@ -736,20 +748,22 @@ def __choose_drop_game_text(
     return choice(choses)
 
 
+# INFO. Протестировано ✅
 async def __game_drop_move_indexes(
     game: dict[str, Any],
     message: Message,
 ) -> None:
-    player_index: int = game['players_sleeping_order'].index(str(message.from_user.id))
+    id_telegram: str = str(message.from_user.id)
+    player_index: int = game['players_sleeping_order'].index(id_telegram)
     game['players_sleeping_order'].pop(player_index)
-    game['players'].pop(str(message.from_user.id))
+    game['players'].pop(id_telegram)
 
     # INFO. После окончания каждого раунда указатели будут сдвинуты на +1
     #       в функции __process_in_game_end_round.
     if player_index > game['sleeper_index']:
         if player_index < game['supervisor_index']:
             game['supervisor_index'] -= 1
-        else:
+        elif player_index == game['supervisor_index']:
             if game['supervisor_index'] > len(game['players_sleeping_order']) - 1:
                 game['supervisor_index'] = 0
             await __notify_supervisor(chat_id=game['players_sleeping_order'][game['supervisor_index']])
@@ -760,13 +774,15 @@ async def __game_drop_move_indexes(
             await __notify_supervisor(chat_id=game['players_sleeping_order'][game['supervisor_index']])
         else:
             game['supervisor_index'] -= 1
-        if player_index == game['sleeper_index']:
+        # INFO. Проверка, что ушел сновидец, нужно сверить со старым индексом.
+        if player_index == game['sleeper_index'] + 1:
             process_game_in_redis(redis_key=game['redis_key'], set_game=game)
-            __process_in_game_end_round(skip_results=True)
+            await __process_in_game_end_round(skip_results=True)
 
     process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
+# INFO. Протестировано ✅
 def __get_players_roles(players_count: int) -> list[str]:
     """
     Формирует список ролей игроков в зависимости от количества.
@@ -788,11 +804,13 @@ def __get_players_roles(players_count: int) -> list[str]:
     return [GameRoles.FAIRY] * fairy + [GameRoles.BUKA] * buka + [GameRoles.SANDMAN] * sandman
 
 
+# INFO. Протестировано ✅
 def __get_players_sleeping_order(players: list[str]) -> list[str]:
     shuffle(players)
     return players
 
 
+# INFO. Протестировано ✅
 def __get_role_description(role: str) -> str:
     if role == GameRoles.BUKA:
         return (
@@ -823,10 +841,10 @@ def __get_role_description(role: str) -> str:
         )
     if role == GameRoles.SUPERVISOR:
         return (
-            'В этом раунде ты также — Хранитель сна. Ты следишь за тем, как '
-            'сновидец проходит свой путь, и видишь всё: правду, ложь и колебания. '
-            'Отмечай верно или ошибочно были названы слова, раздавай пенальти, когда '
-            'кто-то нарушает законы царства снов. И не забывай — ты тоже играешь.'
+            'Также в этом раунде ты — Хранитель сна. Ты следишь за тем, как '
+            'сновидец проходит свой путь, и видишь всё: правду, ложь, сомнения и колебания. '
+            'Отмечай верно или ошибочно были названы сновидцем слова, раздавай штрафные очки, '
+            'когда кто-то нарушает законы царства снов. И не забывай — ты тоже играешь.'
         )
 
 
@@ -839,8 +857,35 @@ async def __notify_supervisor(chat_id: int) -> None:
     )
 
 
+# INFO. Протестировано ✅
+def __set_game_achievements(
+    game: dict[str, Any],
+):
+    """Выдает достижения за игру."""
+    keys: tuple[str] = (
+        'total_penalties',
+        'total_score',
+        'total_score_buka',
+        'total_score_fairy',
+        'total_score_sandman',
+        'total_score_sleeper',
+    )
+    max_values: dict[str, int] = {}
+    for key in keys:
+        max_value: int = max((data['scores'].get(key, 0) for data in game['players'].values()))
+        if max_value > 0:
+            max_values[key] = max_value
+
+    for key in keys:
+        if key not in max_values:
+            continue
+        for data in game['players'].values():
+            if data['scores'].get(key, None) == max_values[key]:
+                data['scores'].setdefault('achievements', {})[key] = 1
+
+
 async def __send_new_word(game: dict[str, Any]) -> None:
-    """Отправляет новую карточку слова игрокам."""
+    """Отправляет новую карточку слова игрокам и смещает индекс карточки в игре."""
 
     async def __send_new_word_to_player(
         id_telegram: str,
@@ -875,6 +920,7 @@ async def __send_new_word(game: dict[str, Any]) -> None:
     process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
+# INFO. Протестировано ✅
 def __set_players_roles(game: dict[str, Any]) -> None:
     """Обновляет роли игроков в словаре игры "game"."""
     roles: list[str] = __get_players_roles(players_count=len(game['players']))
@@ -887,3 +933,53 @@ def __set_players_roles(game: dict[str, Any]) -> None:
         else:
             data['role'] = roles[i]
             i += 1
+
+
+# INFO. Протестировано ✅
+def __set_round_achievements(
+    game: dict[str, Any],
+):
+    """Выдает достижения за раунд."""
+    for data in game['players'].values():
+        if data['role'] != GameRoles.SLEEPER:
+            continue
+
+        if game['round_correct_count'] == 0:
+            data['achievements']['nightmare'] = 1
+        elif (
+            game['round_correct_count'] >= 4
+            and
+            game['round_incorrect_count'] == 0
+            and
+            game['round_user_retell_dream_correct']
+        ):
+            data['achievements']['dream_master'] = 1
+
+
+# INFO. Протестировано ✅
+def __set_round_points(
+    game: dict[str, Any],
+):
+    """Подсчитывает очки за раунд."""
+    if game['round_incorrect_count'] == game['round_correct_count']:
+        sandman_points: int = game['round_correct_count'] + 2
+    else:
+        answers_balance: int = abs(game['round_correct_count'] - game['round_incorrect_count'])
+        if answers_balance == 1:
+            sandman_points: int = max(game['round_correct_count'], game['round_incorrect_count'])
+        else:
+            sandman_points: int = min(game['round_correct_count'], game['round_incorrect_count'])
+
+    sleeper_points: int = game['round_correct_count']
+    if game['round_user_retell_dream_correct']:
+        sleeper_points += 2
+
+    for data in game['players'].values():
+        if data['role'] == GameRoles.BUKA:
+            data['scores']['total_score_buka'] += game['round_incorrect_count']
+        elif data['role'] == GameRoles.FAIRY:
+            data['scores']['total_score_fairy'] += game['round_correct_count']
+        elif data['role'] == GameRoles.SANDMAN:
+            data['scores']['total_score_sandman'] += sandman_points
+        elif data['role'] == GameRoles.SLEEPER:
+            data['scores']['total_score_sleeper'] += sleeper_points
