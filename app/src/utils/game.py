@@ -182,10 +182,12 @@ async def send_game_start_messages(game: dict[str, Any]) -> None:
             '1..',
             'Сейчас!✨',
         ):
-            await bot.send_message(
+            message: Message = await bot.send_message(
                 chat_id=chat_id,
                 text=t,
+                reply_markup=ReplyKeyboardRemove(),
             )
+            messages_ids.append(message.message_id)
             await asyncio_sleep(1)
         await delete_messages_list(
             chat_id=chat_id,
