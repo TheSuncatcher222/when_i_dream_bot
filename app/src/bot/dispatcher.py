@@ -24,5 +24,5 @@ routers: tuple[Router] = (
     sync_images,
 )
 
-for router in (start, *routers, fallback):
+for router in (*routers, start, fallback):
     dp.include_router(router)
