@@ -63,7 +63,6 @@ async def command_game_join(
         else:
             i += 1
 
-
     await state.set_state(state=GameForm.in_lobby_select_game)
     await message.answer(
         text = 'К какому сну ты хочешь присоединиться?\n' + '\n'.join(f'- {number}' for number in avaliable_games_numbers),
@@ -81,7 +80,8 @@ async def asked_for_password(
         await state.clear()
         return await command_start(message=message)
 
-    game: dict[str, Any] | None = process_game_in_redis(RedisKeys.GAME_LOBBY.format(number=message.text), get=True)
+    game: dict[str, Any] | None = await process_game_in_redis(RedisKeys.GAME_LOBBY.format(number=message.text), get=True)
+    await process_game_in_redis(redis_key=game['redis_key'], release=True)
     success: bool = False
 
     if not game:
@@ -117,10 +117,11 @@ async def add_to_game(
         return await command_start(message=message)
 
     state_data: dict[str, Any] = await state.get_data()
-    game: dict[str, Any] | None = process_game_in_redis(RedisKeys.GAME_LOBBY.format(number=state_data['_join_game_number']), get=True)
+    game: dict[str, Any] | None = await process_game_in_redis(RedisKeys.GAME_LOBBY.format(number=state_data['_join_game_number']), get=True)
 
     if message.text != game['password']:
         answer: Message = await message.answer(text='Увы, пароль оказался неправильным..')
+        await process_game_in_redis(redis_key=game['redis_key'], release=True)
         await asyncio_sleep(1)
         return await delete_messages_list(
             chat_id=message.chat.id,
@@ -136,7 +137,6 @@ async def add_to_game(
         'name': user.get_full_name(),
         'chat_id': message.chat.id,
     }
-    process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
     # TODO. Попробовать через bot.edit_message_text
     # TODO. bot.delete_messages!!!!!
@@ -147,17 +147,19 @@ async def add_to_game(
     )
     host_message: Message = await bot.send_message(
         chat_id=game['host_chat_id'],
-        text=form_lobby_host_message(redis_key=game['redis_key']),
+        text=form_lobby_host_message(game=game),
         reply_markup=KEYBOARD_LOBBY_HOST,
     )
-    game["host_lobby_message_id"] = host_message.message_id
-    process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+    game['host_lobby_message_id'] = host_message.message_id
 
+    # TODO. Добавить сообщение "Успешно!" в список для удаления
     await state.set_state(state=GameForm.in_game)
     await message.answer(
         text='Успешно!',
         reply_markup=KEYBOARD_HOME,
     )
+
+    await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
 @router.message(

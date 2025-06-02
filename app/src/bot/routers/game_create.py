@@ -55,15 +55,15 @@ async def command_game_create(
         )
     await __create_lobby(user=user, message=message)
 
+    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
     await state.set_state(state=GameForm.in_lobby)
     answer: Message =await message.answer(
-        text=form_lobby_host_message(message=message),
+        text=form_lobby_host_message(game=game),
         reply_markup=KEYBOARD_LOBBY_HOST,
     )
 
-    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
     game['host_lobby_message_id'] = answer.message_id
-    process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+    await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
 @router.message(GameForm.in_lobby)
@@ -84,8 +84,9 @@ async def start_game(
             messages_ids=[message.message_id],
         )
 
-    game: dict[str, Any] = process_game_in_redis(message=message, get=True)
+    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
     if not await __validate_players_count(game=game, message=message):
+        await process_game_in_redis(redis_key=game['redis_key'], release=True)
         return
 
     await state.set_state(state=GameForm.in_game)
@@ -123,7 +124,7 @@ async def __create_lobby(
         break
 
     redis_set(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user.id_telegram)), value=number)
-    process_game_in_redis(
+    await process_game_in_redis(
         redis_key=key,
         set_game={
             'number': number,
