@@ -5,6 +5,7 @@ from aiogram import (
     Router,
     F,
 )
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
@@ -30,7 +31,11 @@ from app.src.utils.reply_keyboard import (
     KEYBOARD_HOME,
     KEYBOARD_LOBBY_HOST,
 )
-from app.src.validators.game import GameParams
+from app.src.utils.redis_app import redis_set
+from app.src.validators.game import (
+    GameParams,
+    GameStatus,
+)
 
 router: Router = Router()
 
@@ -41,10 +46,6 @@ async def command_game_join(
     state: FSMContext,
 ) -> None:
     """Инициализирует присоединение к игровому лобби."""
-    # INFO. Стоит в начале функции, так как создает задержку между удалением
-    #       и отправкой нового сообщения.
-    avaliable_games_numbers: list[str] = process_avaliable_game_numbers(get=True)
-
     async with async_session_maker() as session:
         user: User = await user_crud.retrieve_by_id_telegram(
             obj_id_telegram=message.from_user.id,
@@ -55,6 +56,9 @@ async def command_game_join(
         messages_ids=[user.message_main_last_id],
     )
 
+    # INFO. Стоит в начале функции, так как создает задержку между удалением
+    #       и отправкой нового сообщения.
+    avaliable_games_numbers: list[str] = process_avaliable_game_numbers(get=True)
     if not avaliable_games_numbers:
         await state.clear()
         answer: Message = await message.answer(text='В данный момент никто не собирается спать.')
@@ -97,10 +101,9 @@ async def asked_for_password(
     game: dict[str, Any] | None = await process_game_in_redis(RedisKeys.GAME_LOBBY.format(number=message.text), get=True)
     await process_game_in_redis(redis_key=game['redis_key'], release=True)
     success: bool = False
-
     if not game:
         text: str = 'Такого сна не существует.'
-    elif game.get('started', False):
+    elif game['status'] != GameStatus.IN_LOBBY:
         text: str = 'Игроки уже крепко спят, присоединиться не получится.'
     else:
         success: bool = True
@@ -149,7 +152,7 @@ async def add_to_game(
         )
     game['players'][user.id_telegram] = {
         'name': user.get_full_name(),
-        'chat_id': message.chat.id,
+        'chat_id': str(message.chat.id),
     }
 
     # TODO. Когда уходят с лобби - менять сообщение.
@@ -167,15 +170,18 @@ async def add_to_game(
     )
 
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+    redis_set(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user.id_telegram)), value=game['number'])
     if len(game['players']) == GameParams.PLAYERS_MAX:
         process_avaliable_game_numbers(remove_number=game['number'])
 
 
 @router.message(
-    GameForm.in_game,
-    GameForm.in_game_destroy_game,
-    GameForm.in_game_drop_game,
-    GameForm.in_game_set_penalty,
+    StateFilter(
+        GameForm.in_game,
+        GameForm.in_game_destroy_game,
+        GameForm.in_game_drop_game,
+        GameForm.in_game_set_penalty,
+    ),
 )
 async def in_game(
     message: Message,
