@@ -20,6 +20,7 @@ class GameRoles:
 class GameStatus:
     """Статусы/состояния игры."""
 
+    IN_LOBBY: str = 'in_lobby'
     ROUND_IS_STARTED: str = 'round_is_started'
     WAIT_DREAMER_RETAILS: str = 'wait_dreamer_retails'
     PREPARE_NEXT_ROUND: str = 'prepare_next_round'
