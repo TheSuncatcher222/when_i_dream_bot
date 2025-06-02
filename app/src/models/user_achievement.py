@@ -32,36 +32,36 @@ class UserAchievement(Base):
 
     # Fields.
 
-    nightmare: Mapped[int] = mapped_column(
-        comment='Cущий кошмар',
-        server_default='0',
-    )
     dream_master: Mapped[int] = mapped_column(
         comment='Cон на яву',
+        server_default='0',
+    )
+    nightmare: Mapped[int] = mapped_column(
+        comment='Cущий кошмар',
         server_default='0',
     )
     top_penalties: Mapped[int] = mapped_column(
         comment='Кайфоломщик',
         server_default='0',
     )
-    top_guesser: Mapped[int] = mapped_column(
-        comment='Яркие сны',
+    top_score: Mapped[int] = mapped_column(
+        comment='Высший разум',
         server_default='0',
     )
-    top_buka: Mapped[int] = mapped_column(
+    top_score_buka: Mapped[int] = mapped_column(
         comment='Бу-бу-бука',
         server_default='0',
     )
-    top_fairy: Mapped[int] = mapped_column(
+    top_score_fairy: Mapped[int] = mapped_column(
         comment='Крестная фея',
         server_default='0',
     )
-    top_sandman: Mapped[int] = mapped_column(
+    top_score_sandman: Mapped[int] = mapped_column(
         comment='Лицемерище',
         server_default='0',
     )
-    top_score: Mapped[int] = mapped_column(
-        comment='Высший разум',
+    top_score_sleeper: Mapped[int] = mapped_column(
+        comment='Яркие сны',
         server_default='0',
     )
 
