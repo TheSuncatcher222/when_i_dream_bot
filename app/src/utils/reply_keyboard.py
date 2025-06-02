@@ -103,3 +103,9 @@ KEYBOARD_LOBBY_SUPERVISOR_IN_GAME: ReplyKeyboardMarkup = make_row_keyboard(
 KEYBOARD_YES_NO: ReplyKeyboardMarkup = make_row_keyboard(
     rows=((RoutersCommands.YES, RoutersCommands.NO),),
 )
+KEYBOARD_YES_NO_HOME: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=(
+        (RoutersCommands.YES, RoutersCommands.NO),
+        (RoutersCommands.HOME,),
+    ),
+)
