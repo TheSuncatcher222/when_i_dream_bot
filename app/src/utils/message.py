@@ -7,6 +7,7 @@ from aiogram.methods.delete_message import DeleteMessage
 from app.src.bot.bot import bot
 
 
+# TODO. Попробовать интеграцию bot.delete_messages
 async def delete_messages_list(
     chat_id: int,
     messages_ids: list[int],
