@@ -41,14 +41,27 @@ async def command_game_join(
     state: FSMContext,
 ) -> None:
     """Инициализирует присоединение к игровому лобби."""
+    # INFO. Стоит в начале функции, так как создает задержку между удалением
+    #       и отправкой нового сообщения.
     avaliable_games_numbers: list[str] = process_avaliable_game_numbers(get=True)
+
+    async with async_session_maker() as session:
+        user: User = await user_crud.retrieve_by_id_telegram(
+            obj_id_telegram=message.from_user.id,
+            session=session,
+        )
+    await delete_messages_list(
+        chat_id=message.chat.id,
+        messages_ids=[user.message_main_last_id],
+    )
+
     if not avaliable_games_numbers:
         await state.clear()
-        answer: Message = await message.answer(text='В данный момент никто не собирается спать.')
+        answer: Message = await message.answer(text='В данный момент никто не собирается спать.')
         await asyncio_sleep(1)
         await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=[message.message_id, answer.message_id],
+            messages_ids=[answer.message_id],
         )
         return await command_start(message=message)
 
@@ -139,19 +152,12 @@ async def add_to_game(
         'chat_id': message.chat.id,
     }
 
-    # TODO. Попробовать через bot.edit_message_text
-    # TODO. bot.delete_messages!!!!!
     # TODO. Когда уходят с лобби - менять сообщение.
-    await delete_messages_list(
+    await bot.edit_message_text(
         chat_id=game['host_chat_id'],
-        messages_ids=[game['host_lobby_message_id']],
-    )
-    host_message: Message = await bot.send_message(
-        chat_id=game['host_chat_id'],
+        message_id=game['host_lobby_message_id'],
         text=form_lobby_host_message(game=game),
-        reply_markup=KEYBOARD_LOBBY_HOST,
     )
-    game['host_lobby_message_id'] = host_message.message_id
 
     # TODO. Добавить сообщение "Успешно!" в список для удаления
     await state.set_state(state=GameForm.in_game)
