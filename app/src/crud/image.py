@@ -22,8 +22,8 @@ class ImageCrud(BaseAsyncCrud):
             select(Image.name, Image.id_telegram)
             .where(Image.category == ImageCategory.CHARACTERS)
         )
-        pairs: list[tuple[int, int]] = (await session.execute(query)).scalars().all()
-        return {value[0]: value[1] for value in pairs}
+        result = await session.execute(query)
+        return dict(result.all())
 
     async def retrieve_all_rules_ids_telegram(
         self,
