@@ -61,14 +61,32 @@ async def command_game_create(
             obj_id_telegram=message.from_user.id,
             session=session,
         )
+    await delete_messages_list(
+        chat_id=message.chat.id,
+        messages_ids=[user.message_main_last_id, message.message_id],
+    )
+
+    async with async_session_maker() as session:
+        user: User = await user_crud.retrieve_by_id_telegram(
+            obj_id_telegram=message.from_user.id,
+            session=session,
+        )
     await __create_lobby(user=user, message=message)
 
     game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
     await state.set_state(state=GameForm.in_lobby)
-    answer: Message =await message.answer(
-        text=form_lobby_host_message(game=game),
+    # INFO. Разделено на 2 части, так как нельзя редактировать сообщение,
+    #       к которому привязана reply-клавиатура.
+    await message.answer(
+        text=(
+            'Приветствую, капитан! Ты готов отправиться со своей командой в новое '
+            'путешествие по миру снов? Отлично! Игра успешно создана!\n'
+            f'Номер: {game['number']}\n'
+            f'Пароль: {game['password']}'
+        ),
         reply_markup=KEYBOARD_LOBBY_HOST,
     )
+    answer: Message = await message.answer(text=form_lobby_host_message(game=game))
 
     game['host_lobby_message_id'] = answer.message_id
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
