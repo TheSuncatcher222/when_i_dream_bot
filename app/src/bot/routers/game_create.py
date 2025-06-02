@@ -1,4 +1,9 @@
-from asyncio import sleep as asyncio_sleep
+from asyncio import (
+    Task,
+    gather as asyncio_gather,
+    sleep as asyncio_sleep,
+)
+from datetime import datetime
 from random import choices
 from typing import Any
 
@@ -9,10 +14,13 @@ from aiogram import (
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
+from app.src.config.config import Timezones
 from app.src.crud.user import user_crud
+from app.src.crud.user_statistic import user_statistic_crud
 from app.src.database.database import (
-    async_session_maker,
+    AsyncSession,
     RedisKeys,
+    async_session_maker,
 )
 from app.src.models.user import User
 from app.src.utils.game import (
@@ -94,6 +102,19 @@ async def start_game(
     await send_game_start_messages(game=game)
     await send_game_roles_messages(game=game)
 
+    async with async_session_maker() as session:
+        datetime_now: datetime = datetime.now(tz=Timezones.MOSCOW)
+        tasks: list[Task] = [
+            __set_players_last_game_datetime(
+                id_telegram=k,
+                datetime_now=datetime_now,
+                session=session,
+            )
+            for k in game['players']
+        ]
+        await asyncio_gather(*tasks, return_exceptions=True)
+        await session.commit()
+
 
 @router.message(
     GameForm.in_game,
@@ -161,3 +182,18 @@ async def __validate_players_count(
         messages_ids=[message.message_id, answer.message_id],
     )
     return False
+
+
+async def __set_players_last_game_datetime(
+    id_telegram: str | int,
+    datetime_now: datetime,
+    session: AsyncSession,
+) -> None:
+    """Обновляет время последней игры у игрока."""
+    await user_statistic_crud.update_by_user_id_telegram(
+        obj_id_telegram=id_telegram,
+        obj_data={'last_game_datetime': datetime_now},
+        session=session,
+        perform_check_unique=False,
+        perform_commit=False,
+    )
