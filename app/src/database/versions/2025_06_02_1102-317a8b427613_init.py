@@ -1,17 +1,18 @@
 """Init
 
-Revision ID: f6e0afb878f6
+Revision ID: 317a8b427613
 Revises:
-Create Date: 2025-05-26 11:20:25.320051
+Create Date: 2025-06-02 11:02:53.513987
 
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'f6e0afb878f6'
+revision: str = '317a8b427613'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -23,12 +24,13 @@ def upgrade() -> None:
         'table_image',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False, comment='ID'),
         sa.Column('id_telegram', sa.String(length=128), nullable=False, comment='id в Telegram'),
-        sa.Column('id_telegram_rotated', sa.String(length=128), nullable=True, server_default=sa.text('NULL'), comment='id в Telegram (перевернутое)'),
+        sa.Column('id_telegram_rotated', sa.String(length=128), server_default=sa.text('NULL'), nullable=True, comment='id в Telegram (перевернутое)'),
         sa.Column('local_path', sa.String(length=128), nullable=False, comment='путь'),
         sa.Column('name', sa.String(length=48), nullable=False, comment='название'),
         sa.Column('category', sa.Integer(), nullable=False, comment='категория'),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('id_telegram'),
+        sa.UniqueConstraint('id_telegram_rotated'),
         sa.UniqueConstraint('local_path'),
         sa.UniqueConstraint('name'),
         comment='Изображение',
@@ -50,14 +52,14 @@ def upgrade() -> None:
     op.create_table(
         'table_user_achievement',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False, comment='ID'),
-        sa.Column('nightmare', sa.Integer(), server_default='0', nullable=False, comment='👺 Cущий кошмар: не отгадал(а) ни одного слова за сновидца'),
-        sa.Column('dream_master', sa.Integer(), server_default='0', nullable=False, comment='😻 Cон на яву: отгадал(а) все слова за сновидца'),
-        sa.Column('top_guesser', sa.Integer(), server_default='0', nullable=False, comment='🕵️\u200d♀️ Яркие сны: угадал(а) больше всего слов за сновидца'),
-        sa.Column('top_buka', sa.Integer(), server_default='0', nullable=False, comment='🗿 Бу-бу-бука: получил(а) больше всего очков за буку'),
-        sa.Column('top_fairy', sa.Integer(), server_default='0', nullable=False, comment='🧚\u200d♀️ Крестная фея: получил(а) больше всего очков за фею'),
-        sa.Column('top_sandman', sa.Integer(), server_default='0', nullable=False, comment='🎭 Лицемерище: получил(а) больше всего очков за песочного человечка'),
-        sa.Column('top_score', sa.Integer(), server_default='0', nullable=False, comment='🥇 Высший разум: получил(а) больше всего очков'),
-        sa.Column('top_penalties', sa.Integer(), server_default='0', nullable=False, comment='🌚 Кайфоломщик: получил(а) больше всего штрафных очков'),
+        sa.Column('dream_master', sa.Integer(), server_default='0', nullable=False, comment='Cон на яву'),
+        sa.Column('nightmare', sa.Integer(), server_default='0', nullable=False, comment='Cущий кошмар'),
+        sa.Column('top_penalties', sa.Integer(), server_default='0', nullable=False, comment='Кайфоломщик'),
+        sa.Column('top_score', sa.Integer(), server_default='0', nullable=False, comment='Высший разум'),
+        sa.Column('top_score_buka', sa.Integer(), server_default='0', nullable=False, comment='Бу-бу-бука'),
+        sa.Column('top_score_fairy', sa.Integer(), server_default='0', nullable=False, comment='Крестная фея'),
+        sa.Column('top_score_sandman', sa.Integer(), server_default='0', nullable=False, comment='Лицемерище'),
+        sa.Column('top_score_sleeper', sa.Integer(), server_default='0', nullable=False, comment='Яркие сны'),
         sa.Column('user_id', sa.Integer(), nullable=False, comment='ID пользователя'),
         sa.ForeignKeyConstraint(['user_id'], ['table_user.id'], name='table_user_achievement_table_user_fkey', ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
@@ -67,13 +69,15 @@ def upgrade() -> None:
     op.create_table(
         'table_user_statistic',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False, comment='ID'),
-        sa.Column('total_score', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков'),
-        sa.Column('total_score_buka', sa.Integer(), server_default='0', nullable=False, comment='Количество очков за буку'),
-        sa.Column('total_score_fairy', sa.Integer(), server_default='0', nullable=False, comment='Количество очков за фею'),
-        sa.Column('total_score_sandman', sa.Integer(), server_default='0', nullable=False, comment='Количество очков за песочного человека'),
-        sa.Column('total_wins', sa.Integer(), server_default='0', nullable=False, comment='Общее количество побед'),
+        sa.Column('last_game_datetime', sa.DateTime(timezone=True), server_default=sa.text('NULL'), nullable=True, comment='Дата и время последней игры'),
+        sa.Column('top_penalties', sa.Integer(), server_default='0', nullable=False, comment='Общее количество штрафов'),
         sa.Column('total_quits', sa.Integer(), server_default='0', nullable=False, comment='Общее количество выходов из игры'),
-        sa.Column('last_game_date', sa.DateTime(timezone=True), server_default=sa.text('NULL'), nullable=True, comment='Последняя игра'),
+        sa.Column('top_score', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков'),
+        sa.Column('top_score_buka', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за буку'),
+        sa.Column('top_score_fairy', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за фею'),
+        sa.Column('top_score_sandman', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за песочного человека'),
+        sa.Column('top_score_sleeper', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за сновидца'),
+        sa.Column('total_wins', sa.Integer(), server_default='0', nullable=False, comment='Общее количество побед'),
         sa.Column('user_id', sa.Integer(), nullable=False, comment='ID пользователя'),
         sa.ForeignKeyConstraint(['user_id'], ['table_user.id'], name='table_user_statistic_table_user_fkey', ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
