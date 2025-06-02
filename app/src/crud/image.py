@@ -42,14 +42,13 @@ class ImageCrud(BaseAsyncCrud):
         self,
         *,
         session: AsyncSession,
-    ) -> list[int]:
-        """Получает список id_telegram всех карточек слов."""
+    ) -> list[tuple[str, int, int]]:
+        """Получает словарь {name: id_telegram} всех карточек слов."""
         query: Select = (
-            select(Image.id_telegram, Image.id_telegram_rotated)
+            select(Image.name, Image.id_telegram, Image.id_telegram_rotated)
             .where(Image.category == ImageCategory.WORDS)
         )
-        pairs: list[tuple[int, int]] = (await session.execute(query)).all()
-        return [value for pair in pairs for value in pair]
+        return (await session.execute(query)).all()
 
 
 image_crud: ImageCrud = ImageCrud(
