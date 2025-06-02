@@ -11,6 +11,7 @@ from aiogram import (
     Router,
     F,
 )
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
@@ -43,7 +44,11 @@ from app.src.utils.reply_keyboard import (
     RoutersCommands,
     KEYBOARD_LOBBY_HOST,
 )
-from app.src.validators.game import GameParams
+from app.src.validators.game import (
+    GameParams,
+    GameStatus,
+)
+
 
 router: Router = Router()
 
@@ -109,13 +114,14 @@ async def start_game(
             chat_id=message.chat.id,
             messages_ids=[message.message_id],
         )
-
     game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
     if not await __validate_players_count(game=game, message=message):
         await process_game_in_redis(redis_key=game['redis_key'], release=True)
         return
 
     await state.set_state(state=GameForm.in_game)
+    process_avaliable_game_numbers(remove_number=game['number'])
+
     await setup_game_data(game=game)
     await send_game_start_messages(game=game)
     await send_game_roles_messages(game=game)
@@ -135,10 +141,12 @@ async def start_game(
 
 
 @router.message(
-    GameForm.in_game,
-    GameForm.in_game_destroy_game,
-    GameForm.in_game_drop_game,
-    GameForm.in_game_set_penalty,
+    StateFilter(
+        GameForm.in_game,
+        GameForm.in_game_destroy_game,
+        GameForm.in_game_drop_game,
+        GameForm.in_game_set_penalty,
+    ),
 )
 async def in_game(
     message: Message,
@@ -169,11 +177,12 @@ async def __create_lobby(
             'number': number,
             'password': ''.join(choices('0123456789', k=4)),
             'redis_key': key,
+            'status': GameStatus.IN_LOBBY,
             'host_chat_id': message.chat.id,
             'players': {
                 str(user.id_telegram): {
                     'name': user.get_full_name(),
-                    'chat_id': message.chat.id,
+                    'chat_id': str(message.chat.id),
                 },
             },
         },
