@@ -52,9 +52,12 @@ async def get_role_image_cards() -> dict[str, str]:
 
 async def get_rules_ids_telegram() -> list[str]:
     """Получает список id_telegram всех карточек правил, отсортированных по порядку."""
-    # TODO. Интегрировать Redis
-    async with async_session_maker() as session:
-        return await image_crud.retrieve_all_rules_ids_telegram(session=session)
+    rules_ids: list[str] = redis_get(key=RedisKeys.RULES)
+    if not rules_ids:
+        async with async_session_maker() as session:
+            rules_ids: list[str] = await image_crud.retrieve_all_rules_ids_telegram(session=session)
+        redis_set(key=RedisKeys.RULES, value=rules_ids)
+    return rules_ids
 
 
 async def get_shuffled_words_cards() -> list[int]:
