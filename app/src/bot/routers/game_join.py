@@ -30,6 +30,7 @@ from app.src.utils.reply_keyboard import (
     KEYBOARD_HOME,
     KEYBOARD_LOBBY_HOST,
 )
+from app.src.validators.game import GameParams
 
 router: Router = Router()
 
@@ -160,6 +161,8 @@ async def add_to_game(
     )
 
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+    if len(game['players']) == GameParams.PLAYERS_MAX:
+        process_avaliable_game_numbers(remove_number=game['number'])
 
 
 @router.message(
