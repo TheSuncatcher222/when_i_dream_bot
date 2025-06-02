@@ -67,6 +67,7 @@ from app.src.utils.redis_app import (
     redis_sset_process,
 )
 from app.src.validators.game import (
+    GameParams,
     GameRoles,
     GameStatus,
 )
@@ -654,6 +655,10 @@ async def __process_in_game_home(
         await process_game_in_redis(redis_key=game['redis_key'], delete=True)
     else:
         await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+
+    # INFO. Игры в лобби не имеют статуса.
+    if 'status' not in game and len(game['players']) < GameParams.PLAYERS_MAX:
+        process_avaliable_game_numbers(add_number=game['number'])
 
     await state.clear()
     await delete_messages_list(
