@@ -75,7 +75,7 @@ class TimeIntervals:
     """Класс представления таймаутов."""
 
     # Seconds.
-
+    SECOND_ONE: int = 1
     SECONDS_IN_1_MINUTE: int = 60
     SECONDS_IN_1_HOUR: int = SECONDS_IN_1_MINUTE * 60
     SECONDS_IN_1_DAY: int = SECONDS_IN_1_HOUR * 24
