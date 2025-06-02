@@ -146,11 +146,6 @@ def form_lobby_host_message(game: dict[str, Any]) -> str:
     """Формирует сообщение для хоста лобби."""
     players: str = '\n'.join(f'- {player["name"]}' for player in game['players'].values())
     return (
-        'Приветствую, капитан! Ты готов отправиться со своей командой в новое '
-        'путешествие по миру снов? Отлично! Игра успешно создана!\n'
-        f'Номер: {game['number']}\n'
-        f'Пароль: {game['password']}'
-        '\n\n'
         'Список сновидцев:\n'
         f'{players}'
     )
@@ -654,11 +649,15 @@ async def __process_in_game_home(
     if len(game['players']) == 0:
         await process_game_in_redis(redis_key=game['redis_key'], delete=True)
     else:
+        # INFO. Игры в лобби не имеют статуса.
+        if 'status' not in game and len(game['players']) < GameParams.PLAYERS_MAX:
+            process_avaliable_game_numbers(add_number=game['number'])
+            await bot.edit_message_text(
+                chat_id=game['host_chat_id'],
+                message_id=game['host_lobby_message_id'],
+                text=form_lobby_host_message(game=game),
+            )
         await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
-
-    # INFO. Игры в лобби не имеют статуса.
-    if 'status' not in game and len(game['players']) < GameParams.PLAYERS_MAX:
-        process_avaliable_game_numbers(add_number=game['number'])
 
     await state.clear()
     await delete_messages_list(
@@ -910,6 +909,9 @@ async def process_game_in_redis(
 
     # INFO. Есть шанс, что несколько игроков одновременно получат данные
     #       игры в Redis и начнется состояние гонки.
+    # TODO. Посылать номер, чтобы не парсить.
+    # INFO. redis_key=src_lobby_{number}
+    number: str = redis_key.split('_')[-1]
     while 1:
         if redis_check_exists(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number)):
             await asyncio_sleep(0.05)
