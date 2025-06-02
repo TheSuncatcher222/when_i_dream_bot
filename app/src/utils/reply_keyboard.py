@@ -56,20 +56,25 @@ def get_keyboard_main_menu(user_id_telegram: int | str) -> ReplyKeyboardMarkup:
     """
     Возвращает клавиатуру главного меню.
     """
-    # TODO. Добавить Redis
-    keyboard: list[list[str]] = (
+    if check_if_user_is_admin(user_id_telegram=user_id_telegram):
+       return KEYBOARD_MAIN_MENU_ADMIN
+    return KEYBOARD_MAIN_MENU
+
+
+KEYBOARD_MAIN_MENU: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=(
         (RoutersCommands.GAME_CREATE, RoutersCommands.GAME_JOIN),
         (RoutersCommands.HELP,),
-    )
-    if check_if_user_is_admin(user_id_telegram=user_id_telegram):
-        keyboard: list[list[str]] = (
-            (RoutersCommands.PING,),
-            (RoutersCommands.SYNC_IMAGES,),
-            *keyboard,
-        )
-    return make_row_keyboard(rows=keyboard)
-
-
+    ),
+)
+KEYBOARD_MAIN_MENU_ADMIN: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=(
+        (RoutersCommands.PING,),
+        (RoutersCommands.SYNC_IMAGES,),
+        (RoutersCommands.GAME_CREATE, RoutersCommands.GAME_JOIN),
+        (RoutersCommands.HELP,),
+    ),
+)
 KEYBOARD_HELP: ReplyKeyboardMarkup = make_row_keyboard(
     rows=(
         (RoutersCommands.HELP_RULES,),
