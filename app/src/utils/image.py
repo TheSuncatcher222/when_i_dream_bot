@@ -45,7 +45,7 @@ async def get_role_image_cards() -> dict[str, str]:
     cards_ids: dict[str, str] | None = redis_get(key=RedisKeys.ROLES)
     if not cards_ids:
         async with async_session_maker() as session:
-            cards_ids: dict[str, str] = await image_crud.retrieve_all_rules_ids_telegram(session=session)
+            cards_ids: dict[str, str] = await image_crud.retrieve_all_roles_ids_telegram(session=session)
             redis_set(key=RedisKeys.ROLES, value=cards_ids)
     return cards_ids
 
@@ -60,12 +60,17 @@ async def get_rules_ids_telegram() -> list[str]:
     return rules_ids
 
 
-async def get_shuffled_words_cards() -> list[int]:
+async def get_shuffled_words_cards() -> dict[str, str]:
     """Генерирует случайный порядок карт слов для игры."""
-    cards_ids: list[int] = redis_get(key=RedisKeys.WORDS)
+    cards_ids: list[str, str] = redis_get(key=RedisKeys.WORDS)
     if not cards_ids:
         async with async_session_maker() as session:
-            cards_ids: list[int] = await image_crud.retrieve_all_words_ids_telegram(session=session)
+            cards_data: list[tuple[str, int, int]] = await image_crud.retrieve_all_words_ids_telegram(session=session)
+            cards_ids: list[str, str] = []
+            for name, normal_id, rotated_id in cards_data:
+                name_parts: list[str] = name.split(' | ')
+                cards_ids.append((name_parts[0], normal_id))
+                cards_ids.append((name_parts[1], rotated_id))
             redis_set(key=RedisKeys.WORDS, value=cards_ids)
     shuffle(cards_ids)
     return cards_ids
