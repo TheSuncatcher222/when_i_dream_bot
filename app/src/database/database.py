@@ -68,6 +68,7 @@ class RedisKeys:
 
     __PREFIX_CARDS: str = __PREFIX_SRC + 'cards_'
     ROLES: str = __PREFIX_CARDS + 'roles'
+    RULES: str = __PREFIX_CARDS + 'rules'
     WORDS: str = __PREFIX_CARDS + 'words'
 
     __PREFIX_USER: str = __PREFIX_SRC + 'user_'
