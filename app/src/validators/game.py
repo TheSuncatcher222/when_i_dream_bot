@@ -21,6 +21,6 @@ class GameStatus:
     """Статусы/состояния игры."""
 
     ROUND_IS_STARTED: str = 'round_is_started'
-    WAITING_DREAMER_RETAILS: str = 'wat_dreamer_retails'
+    WAIT_DREAMER_RETAILS: str = 'wait_dreamer_retails'
     PREPARE_NEXT_ROUND: str = 'prepare_next_round'
     FINISHED: str = 'finished'
