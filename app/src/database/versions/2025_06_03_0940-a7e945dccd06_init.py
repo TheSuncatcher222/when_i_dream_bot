@@ -1,8 +1,8 @@
 """Init
 
-Revision ID: 317a8b427613
+Revision ID: a7e945dccd06
 Revises:
-Create Date: 2025-06-02 11:02:53.513987
+Create Date: 2025-06-03 09:40:13.080772
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '317a8b427613'
+revision: str = 'a7e945dccd06'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -59,7 +59,7 @@ def upgrade() -> None:
         sa.Column('top_score_buka', sa.Integer(), server_default='0', nullable=False, comment='Бу-бу-бука'),
         sa.Column('top_score_fairy', sa.Integer(), server_default='0', nullable=False, comment='Крестная фея'),
         sa.Column('top_score_sandman', sa.Integer(), server_default='0', nullable=False, comment='Лицемерище'),
-        sa.Column('top_score_sleeper', sa.Integer(), server_default='0', nullable=False, comment='Яркие сны'),
+        sa.Column('top_score_dreamer', sa.Integer(), server_default='0', nullable=False, comment='Яркие сны'),
         sa.Column('user_id', sa.Integer(), nullable=False, comment='ID пользователя'),
         sa.ForeignKeyConstraint(['user_id'], ['table_user.id'], name='table_user_achievement_table_user_fkey', ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
@@ -74,9 +74,9 @@ def upgrade() -> None:
         sa.Column('total_quits', sa.Integer(), server_default='0', nullable=False, comment='Общее количество выходов из игры'),
         sa.Column('top_score', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков'),
         sa.Column('top_score_buka', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за буку'),
+        sa.Column('top_score_dreamer', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за сновидца'),
         sa.Column('top_score_fairy', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за фею'),
         sa.Column('top_score_sandman', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за песочного человека'),
-        sa.Column('top_score_sleeper', sa.Integer(), server_default='0', nullable=False, comment='Общее количество очков за сновидца'),
         sa.Column('total_wins', sa.Integer(), server_default='0', nullable=False, comment='Общее количество побед'),
         sa.Column('user_id', sa.Integer(), nullable=False, comment='ID пользователя'),
         sa.ForeignKeyConstraint(['user_id'], ['table_user.id'], name='table_user_statistic_table_user_fkey', ondelete='CASCADE'),
