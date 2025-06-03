@@ -60,7 +60,7 @@ async def get_rules_ids_telegram() -> list[str]:
     return rules_ids
 
 
-async def get_shuffled_words_cards() -> dict[str, str]:
+async def get_shuffled_words_cards() -> list[str, str]:
     """Генерирует случайный порядок карт слов для игры."""
     cards_ids: list[str, str] = redis_get(key=RedisKeys.WORDS)
     if not cards_ids:
