@@ -218,7 +218,7 @@ async def setup_game_data(game: dict[str, Any]) -> None:
         del game[k]
     game_cards_ids: list[str, str] = await get_shuffled_words_cards()
     redis_set(
-        key=RedisKeys.GAME_LOBBY.format(number=game['number']),
+        key=RedisKeys.GAME_WORDS.format(number=game['number']),
         value=game_cards_ids,
     )
     game.update(
