@@ -152,6 +152,7 @@ async def add_to_game(
         )
     game['players'][user.id_telegram] = {
         'name': user.get_full_name(),
+        'id': user.id,
         'chat_id': str(message.chat.id),
     }
 
