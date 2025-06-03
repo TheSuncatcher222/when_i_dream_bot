@@ -112,6 +112,13 @@ KEYBOARD_LOBBY_SUPERVISOR_IN_GAME_RETELL: ReplyKeyboardMarkup = make_row_keyboar
         (RoutersCommands.GAME_DESTROY,),
     ),
 )
+KEYBOARD_LOBBY_SUPERVISOR_IN_GAME_RETELL_FAIL: ReplyKeyboardMarkup = make_row_keyboard(
+    rows=(
+        (RoutersCommands.WORD_INCORRECT,),
+        (RoutersCommands.GAME_DROP,),
+        (RoutersCommands.GAME_DESTROY,),
+    ),
+)
 KEYBOARD_YES_NO: ReplyKeyboardMarkup = make_row_keyboard(
     rows=((RoutersCommands.YES, RoutersCommands.NO),),
 )
