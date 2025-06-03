@@ -60,7 +60,7 @@ class UserAchievement(Base):
         comment='Лицемерище',
         server_default='0',
     )
-    top_score_sleeper: Mapped[int] = mapped_column(
+    top_score_dreamer: Mapped[int] = mapped_column(
         comment='Яркие сны',
         server_default='0',
     )
