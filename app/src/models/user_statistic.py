@@ -59,16 +59,16 @@ class UserStatistic(Base):
         comment='Общее количество очков за буку',
         server_default='0',
     )
+    top_score_dreamer: Mapped[int] = mapped_column(
+        comment='Общее количество очков за сновидца',
+        server_default='0',
+    )
     top_score_fairy: Mapped[int] = mapped_column(
         comment='Общее количество очков за фею',
         server_default='0',
     )
     top_score_sandman: Mapped[int] = mapped_column(
         comment='Общее количество очков за песочного человека',
-        server_default='0',
-    )
-    top_score_sleeper: Mapped[int] = mapped_column(
-        comment='Общее количество очков за сновидца',
         server_default='0',
     )
     total_wins: Mapped[int] = mapped_column(
