@@ -125,6 +125,7 @@ async def start_game(
     await setup_game_data(game=game)
     await send_game_start_messages(game=game)
     await send_game_roles_messages(game=game)
+    await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
     async with async_session_maker() as session:
         datetime_now: datetime = datetime.now(tz=Timezones.MOSCOW)
@@ -182,6 +183,7 @@ async def __create_lobby(
             'players': {
                 str(user.id_telegram): {
                     'name': user.get_full_name(),
+                    'id': user.id,
                     'chat_id': str(message.chat.id),
                 },
             },
