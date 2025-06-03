@@ -1,6 +1,5 @@
 from typing import Any
 
-from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.sql import (
     select,
     update,
@@ -53,41 +52,6 @@ class UserStatisticCrud(BaseAsyncCrud):
             .returning(UserStatistic)
         )
         obj: UserStatistic = (await session.execute(stmt)).scalars().first()
-
-        if perform_commit:
-            await session.commit()
-
-        return obj
-
-    async def increment_by_telegram_id(
-        self,
-        *,
-        user_id_telegram: int,
-        obj_data: dict[str, Any],
-        session: AsyncSession,
-        perform_cleanup: bool = True,
-        perform_commit: bool = True,
-    ) -> UserStatistic | None:
-        """Увеличивает счетчик полей одного объекта из базы данных по указанному user_id_telegram."""
-        if perform_cleanup:
-            obj_data: dict[str, Any] = self._clean_obj_data_non_model_fields(obj_data=obj_data)
-
-        increment_values: dict[str, Any] = {}
-        for k, v in obj_data.items():
-            attr = getattr(UserStatistic, k, None)
-            if isinstance(attr, InstrumentedAttribute) and isinstance(v, (int, float)):
-                increment_values[attr] = attr + v
-
-        if increment_values:
-            stmt: Update = (
-                update(UserStatistic)
-                .where(UserStatistic.user.id_telegram == user_id_telegram)
-                .values(**increment_values)
-                .returning(self.model)
-            )
-            obj: UserStatistic = (await session.execute(stmt)).scalars().first()
-        else:
-            obj: None = None
 
         if perform_commit:
             await session.commit()
