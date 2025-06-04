@@ -278,13 +278,13 @@ async def process_in_game(
 
     # INFO. Подтверждение действий.
     if state_value == GameForm.in_game_destroy_game:
-        return await process_in_game_destroy_game_confirm(message=message, state=state)
+        return await process_in_game_destroy_game_confirm(game=game, message=message, state=state)
     elif state_value == GameForm.in_game_drop_game:
-        return await __process_in_game_drop_game_confirm(message=message, state=state)
+        return await __process_in_game_drop_game_confirm(game=game, message=message, state=state)
     elif state_value == GameForm.in_game_set_penalty:
-        return await __process_in_game_set_penalty_confirm(message=message, state=state)
+        return await __process_in_game_set_penalty_confirm(game=game, message=message, state=state)
     elif game['status'] == GameStatus.WAIT_DREAMER_RETAILS:
-        return await __process_in_game_end_round_ask_for_retail_confirm(message=message)
+        return await __process_in_game_end_round_ask_for_retail_confirm(game=game, message=message)
 
     # INFO. Фиксация ответа сновидца.
     elif message.text == RoutersCommands.WORD_CORRECT:
@@ -304,9 +304,9 @@ async def process_in_game(
     elif message.text == RoutersCommands.GAME_DESTROY:
         await __process_in_game_destroy_game(message=message, state=state)
     elif message.text == RoutersCommands.GAME_DROP:
-        await __process_in_game_drop_game(message=message, state=state)
+        await __process_in_game_drop_game(game=game, message=message, state=state)
     elif message.text == RoutersCommands.HOME:
-        await __process_in_game_home(message=message, state=state)
+        await __process_in_game_home(game=game, message=message, state=state)
 
 
 async def __process_in_game_validate_message_text(
@@ -328,7 +328,7 @@ async def __process_in_game_validate_message_text(
     # INFO. Может придти от любого игрока (в том числе из состояния GameForm.in_lobby!),
     #       но только если игра в состоянии game['status'] == GameStatus.FINISHED
     #       (завершена по любой причине).
-    if game['status'] == GameStatus.FINISHED:
+    if game['status'] in (GameStatus.FINISHED, GameStatus.IN_LOBBY):
         if message.text == RoutersCommands.HOME:
             return True
 
@@ -380,16 +380,18 @@ async def __process_in_game_destroy_game(
 async def process_in_game_destroy_game_confirm(
     message: Message,
     state: FSMContext,
+    game: dict[str, Any] | None = None,
     from_lobby: bool = False,
 ) -> None:
-    """Обрабатывает результат ответа на команду "Завершить игру"."""
+    """Обрабатывает результат ответа на команду "Главное меню"."""
 
+    # TODO. Надо записать answer для удаления. Сейчас удаляется через range() в callback.
     async def __send_destroy_game_message(
         chat_id: int,
         supervisor_chat_id: int,
     ) -> None:
         """Задача по уведомлению игроков о принудительном завершении игры."""
-        if chat_id == supervisor_chat_id:
+        if chat_id == str(supervisor_chat_id):
             text: str = 'Сон был прерван..'
         else:
             text: str = 'Хранитель сна прервал твое путешествие..'
@@ -399,7 +401,9 @@ async def process_in_game_destroy_game_confirm(
             reply_markup=KEYBOARD_HOME,
         )
 
-    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
+    # INFO. Такое приходит из лобби.
+    if not game:
+        game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
 
     # INFO. Из лобби подтверждение не требуется.
     if not from_lobby:
@@ -457,23 +461,26 @@ async def process_in_game_destroy_game_confirm(
 
 
 async def __process_in_game_drop_game(
+    game: dict[str, Any],
     message: Message,
     state: FSMContext,
 ) -> None:
     """Обрабатывает команду "Выйти из игры"."""
     game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
-    await process_game_in_redis(redis_key=game['redis_key'], release=True)
-    game['players'][str(message.from_user.id)]['last_drop_game_message_id'] = message.message_id
 
     await state.set_state(state=GameForm.in_game_destroy_game)
-    await message.answer(
+    answer: Message = await message.answer(
         text='Ты действительно хочешь проснуться?',
         reply_markup=KEYBOARD_YES_NO,
     )
 
+    game['players'][str(message.from_user.id)]['last_drop_game_message_ids'] = [message.message_id, answer.message_id]
+    await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+
 
 # TODO: Доделать
 async def __process_in_game_drop_game_confirm(
+    game: dict[str, Any],
     message: Message,
     state: FSMContext,
 ) -> None:
@@ -484,54 +491,25 @@ async def __process_in_game_drop_game_confirm(
             messages_ids=[message.message_id],
         )
 
-    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
-
     if message.text == RoutersCommands.NO:
-        await process_game_in_redis(redis_key=game['redis_key'], release=True)
         await state.set_state(state=GameForm.in_game)
         await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=list(
-                range(
-                    game['players'][str(message.from_user.id)]['last_drop_game_message_id'],
-                    message.message_id + 1,
-                ),
-            ),
+            messages_ids=game['players'][str(message.from_user.id)]['last_drop_game_message_ids'] + [message.message_id],
         )
+        await process_game_in_redis(redis_key=game['redis_key'], release=True)
 
     await __game_drop_move_indexes(game=game, message=message)
 
-    messages_ids: list[int] = []
-    async with async_session_maker() as session:
-        user: User = await user_crud.retrieve_by_id_telegram(
-            obj_id_telegram=message.from_user.id,
-            session=session,
-        )
-        if user.message_main_last_id:
-            # INFO. Приветственное сообщение + MediaGroup с правилами.
-            messages_ids.extend([user.message_main_last_id, user.message_main_last_id + 1])
-            await user_crud.update_by_id(
-                obj_id=user.id,
-                obj_data={'message_main_last_id': None},
-                session=session,
-                perform_commit=False,
-            )
-
-        # await user_statistic_crud.update_by_user_id(
-        #     user_id=user.id,
-        #     obj_data={'total_quits': user_statistic.total_quits + 1},
-        #     session=session,
-        # )
-
     await state.clear()
-    message: Message = await message.answer(
+    answer: Message = await message.answer(
         text=__choose_drop_game_text(is_leave=True),
         reply_markup=ReplyKeyboardRemove(),
     )
     await asyncio_sleep(5)
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=messages_ids,
+        messages_ids=answer.message_id,
     )
     await command_start(message=message)
 
@@ -569,11 +547,11 @@ async def __process_in_game_set_penalty(
 
 # TODO. Зарефакторить функцию.
 async def __process_in_game_set_penalty_confirm(
+    game: dict[str, Any],
     message: Message,
     state: FSMContext,
 ):
     """Обрабатывает результат ответа на команду "Выдать штраф"."""
-    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
     if message.text == RoutersCommands.CANCEL:
         await process_game_in_redis(redis_key=game['redis_key'], release=True)
         await state.set_state(state=GameForm.in_game)
@@ -660,18 +638,19 @@ async def __process_in_game_start_round(game: dict[str, Any]) -> None:
 
 
 async def __process_in_game_home(
+    game: dict[str, Any],
     message: Message,
     state: FSMContext,
 ) -> None:
     """Обрабатывает команду "Домой"."""
-    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
-    game['players'].pop(str(message.from_user.id))
+    player: dict[str, Any] = game['players'].pop(str(message.from_user.id))
     if len(game['players']) == 0:
         await process_game_in_redis(redis_key=game['redis_key'], delete=True)
+        process_avaliable_game_numbers(remove_number=game['number'])
     else:
-        # INFO. Игры в лобби не имеют статуса.
-        if 'status' not in game and len(game['players']) < GameParams.PLAYERS_MAX:
-            process_avaliable_game_numbers(add_number=game['number'])
+        if game['status'] == GameStatus.IN_LOBBY:
+            if len(game['players']) < GameParams.PLAYERS_MIN:
+                process_avaliable_game_numbers(add_number=game['number'])
             await bot.edit_message_text(
                 chat_id=game['host_chat_id'],
                 message_id=game['host_lobby_message_id'],
@@ -682,7 +661,7 @@ async def __process_in_game_home(
     await state.clear()
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[message.message_id],
+        messages_ids=player.get('messages_to_delete', []) + [message.message_id],
     )
     await command_start(message=message)
 
@@ -907,11 +886,11 @@ async def __process_in_game_end_round_ask_for_retail(redis_key: str) -> None:
 
 
 async def __process_in_game_end_round_ask_for_retail_confirm(
+    game: dict[str, Any],
     message: Message,
 ) -> None:
     """Обрабатывает результат ответа на правильность пересказа сна сновидца."""
     await delete_messages_list(chat_id=message.chat.id, messages_ids=[message.message_id])
-    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
     if game['round_correct_words'] and message.text == RoutersCommands.WORD_CORRECT:
         game['round_user_retell_dream_correct'] = True
     else:
@@ -941,22 +920,23 @@ async def process_game_in_redis(
         number: str = redis_get(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user_id_telegram)))
         redis_key: str = RedisKeys.GAME_LOBBY.format(number=number)
 
-    # TODO. Посылать номер, чтобы не парсить.
+    # TODO. Посылать номер, чтобы не парсить. Подумать, как упростить интерфейс.
     # INFO. redis_key=src_lobby_{number}
     number: str = redis_key.split('_')[-1]
-    if release:
-        redis_delete(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number))
-    # INFO. Есть шанс, что несколько игроков одновременно получат данные
-    #       игры в Redis и начнется состояние гонки.
-    while 1:
-        if redis_check_exists(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number)):
-            await asyncio_sleep(0.05)
-            continue
-        break
+    if get or release:
+        # INFO. Есть шанс, что несколько игроков одновременно получат данные
+        #       игры в Redis и начнется состояние гонки.
+        if release:
+            redis_delete(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number))
+        else:
+            while 1:
+                if redis_check_exists(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number)):
+                    await asyncio_sleep(0.05)
+                    continue
+                break
+            redis_set(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number), value=1, ex_sec=TimeIntervals.SECOND_ONE)
+            return redis_get(key=redis_key)
 
-    if get:
-        redis_set(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number), value=1, ex_sec=TimeIntervals.SECOND_ONE)
-        return redis_get(key=redis_key)
     elif delete:
         redis_delete(key=redis_key)
         redis_delete(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number))
