@@ -19,7 +19,7 @@ async def fallback(message: Message):
     if message.text == RoutersCommands.HOME:
         await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=list(range(message.message_id-10, message.message_id + 1)),
+            messages_ids=list(range(message.message_id - 10, message.message_id + 1)),
         )
         return await command_start(message=message)
 
