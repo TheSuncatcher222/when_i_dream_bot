@@ -36,7 +36,6 @@ from app.src.crud.user import user_crud
 from app.src.crud.user_achievement import user_achievement_crud
 from app.src.crud.user_statistic import user_statistic_crud
 from app.src.database.database import (
-    AsyncSession,
     RedisKeys,
     async_session_maker,
 )
@@ -141,8 +140,6 @@ class GameForm(StatesGroup):
     in_game_destroy_game = State()
     in_game_drop_game = State()
     in_game_set_penalty = State()
-
-    _join_game_number: str
 
 
 # -----------------------------------------------------------------------------
@@ -395,7 +392,7 @@ async def process_in_game_destroy_game_confirm(
         if chat_id == supervisor_chat_id:
             text: str = 'Сон был прерван..'
         else:
-            text: str = 'Хранитель сна прервал твое путешествие..',
+            text: str = 'Хранитель сна прервал твое путешествие..'
         await bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -944,11 +941,13 @@ async def process_game_in_redis(
         number: str = redis_get(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user_id_telegram)))
         redis_key: str = RedisKeys.GAME_LOBBY.format(number=number)
 
-    # INFO. Есть шанс, что несколько игроков одновременно получат данные
-    #       игры в Redis и начнется состояние гонки.
     # TODO. Посылать номер, чтобы не парсить.
     # INFO. redis_key=src_lobby_{number}
     number: str = redis_key.split('_')[-1]
+    if release:
+        redis_delete(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number))
+    # INFO. Есть шанс, что несколько игроков одновременно получат данные
+    #       игры в Redis и начнется состояние гонки.
     while 1:
         if redis_check_exists(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number)):
             await asyncio_sleep(0.05)
@@ -963,8 +962,6 @@ async def process_game_in_redis(
         redis_delete(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number))
     elif set_game:
         redis_set(key=redis_key, value=set_game)
-        redis_delete(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number))
-    elif release:
         redis_delete(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number))
 
 
