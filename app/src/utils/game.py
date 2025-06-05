@@ -382,9 +382,13 @@ async def __process_in_game_destroy_game(
 ) -> None:
     """Обрабатывает команду "Завершить игру"."""
     await state.set_state(state=GameForm.in_game_destroy_game)
-    await message.answer(
+    answer: Message = await message.answer(
         text='Ты действительно хочешь всех разбудить?',
         reply_markup=KEYBOARD_YES_NO,
+    )
+    await set_user_messages_to_delete(
+        event_key=MessagesEvents.GAME_DESTROY,
+        messages=[message, answer],
     )
 
 
@@ -420,24 +424,31 @@ async def process_in_game_destroy_game_confirm(
     if not game:
         game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
 
+    await delete_messages_list(
+        chat_id=message.chat.id,
+        messages_ids=(message.message_id,),
+    )
+
     # INFO. Из лобби подтверждение не требуется.
     if not from_lobby:
         if message.text not in (RoutersCommands.YES, RoutersCommands.NO):
-            await process_game_in_redis(redis_key=game['redis_key'], release=True)
-            return await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
+            return await process_game_in_redis(redis_key=game['redis_key'], release=True)
         elif message.text == RoutersCommands.NO:
             await state.set_state(state=GameForm.in_game)
-            await delete_messages_list(
-                chat_id=message.chat.id,
-                messages_ids=tuple(
-                    range(
-                        game['players'][str(message.from_user.id)]['last_end_game_message_id'],
-                        message.message_id,
-                    ),
-                ),
+            # INFO. Затрется reply-клавиатура, надо удалить роль и выслать заново.
+            for k in (MessagesEvents.GAME_DESTROY, MessagesEvents.ROLE):
+                await delete_user_messages(chat_id=message.chat.id, event_key=k)
+            return await __send_game_role_message(
+                data={
+                    'role': game['players'][str(message.from_user.id)]['role'],
+                    'chat_id': str(message.chat.id),
+                },
+                roles_images=await get_role_image_cards(),
+                supervisor_id_telegram=game['players_dreaming_order'][game['supervisor_index']],
             )
 
     game['status'] = GameStatus.FINISHED
+    await delete_user_messages(chat_id=message.chat.id, event_key=MessagesEvents.GAME_DESTROY)
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
     process_avaliable_game_numbers(remove_number=game['number'])
 
@@ -446,15 +457,6 @@ async def process_in_game_destroy_game_confirm(
             scheduler.remove_job(job_id=SchedulerJobNames.GAME_END_ROUND.format(number=game['number']))
         except JobLookupError:
             pass
-        await delete_messages_list(
-            chat_id=message.chat.id,
-            messages_ids=tuple(
-                range(
-                    game['players'][str(message.from_user.id)]['last_end_game_message_id'],
-                    message.message_id + 1,
-                ),
-            ),
-        )
 
     # INFO. Даже если человек в лобби, нужно поставить состояние GameForm.in_game,
     #       чтобы он смог обработать команду "RoutersCommands.HOME".
@@ -478,12 +480,21 @@ async def __process_in_game_drop_game(
     state: FSMContext,
 ) -> None:
     """Обрабатывает команду "Выйти из игры"."""
-    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
-
-    await state.set_state(state=GameForm.in_game_destroy_game)
+    await state.set_state(state=GameForm.in_game_drop_game)
     answer: Message = await message.answer(
-        text='Ты действительно хочешь проснуться?',
+        text=(
+            'Ты действительно хочешь проснуться?'
+            '\n\n'
+            '❗️Учти, что в этом случае тебе в статистику будет засчитан '
+            'выход из игры! Если вы все хотите проснуться - нужно, чтобы '
+            f'Хранитель сна нажал "{RoutersCommands.GAME_DESTROY}" - '
+            'в этом случае статистика не будет испорчена ни у кого.'
+        ),
         reply_markup=KEYBOARD_YES_NO,
+    )
+    await set_user_messages_to_delete(
+        event_key=MessagesEvents.GAME_DROP,
+        messages=[message, answer],
     )
 
     game['players'][str(message.from_user.id)]['last_drop_game_message_ids'] = [message.message_id, answer.message_id]
@@ -986,32 +997,35 @@ async def process_game_in_redis(
         redis_delete(key=RedisKeys.GAME_LOBBY_BLOCKED.format(number=number))
 
 
+async def __send_game_role_message(
+    data: dict[str, Any],
+    roles_images: dict[str, str],
+    supervisor_id_telegram: str,
+):
+    """Задача по отправке сообщения с ролью игроку."""
+    # TODO. Дать возможность выхода из игры спящему.
+    if data['role'] == GameRoles.DREAMER:
+        reply_markup: ReplyKeyboardRemove = ReplyKeyboardRemove()
+    else:
+        reply_markup: ReplyKeyboardMarkup = KEYBOARD_HOME
+    answer: Message = await bot.send_photo(
+        chat_id=data['chat_id'],
+        # TODO. Возможно стоит скрыть за спойлер.
+        photo=roles_images[data['role']],
+        caption=__get_role_description(role=data['role']),
+        reply_markup=reply_markup,
+    )
+    messages: list[Message] = [answer]
+
+    if data['chat_id'] == supervisor_id_telegram:
+        messages.append(await __notify_supervisor(chat_id=data['chat_id']))
+
+    await set_user_messages_to_delete(event_key=MessagesEvents.ROLE, messages=messages)
+
+
+
 async def send_game_roles_messages(game: dict[str, Any]) -> None:
     """Отправляет сообщения игрокам с их ролями."""
-
-    async def __send_game_roles_message(
-        data: dict[str, Any],
-        roles_images: dict[str, str],
-        supervisor_id_telegram: str,
-    ):
-        """Задача по отправке сообщения с ролью игроку."""
-        if data['role'] == GameRoles.DREAMER:
-            reply_markup: ReplyKeyboardRemove = ReplyKeyboardRemove()
-        else:
-            reply_markup: ReplyKeyboardMarkup = KEYBOARD_HOME
-        answer: Message = await bot.send_photo(
-            chat_id=data['chat_id'],
-            # TODO. Возможно стоит скрыть за спойлер.
-            photo=roles_images[data['role']],
-            caption=__get_role_description(role=data['role']),
-            reply_markup=reply_markup,
-        )
-        messages: list[Message] = [answer]
-
-        if data['chat_id'] == supervisor_id_telegram:
-            messages.append(await __notify_supervisor(chat_id=data['chat_id']))
-
-        await set_user_messages_to_delete(event_key=MessagesEvents.ROLE, messages=messages)
 
     def __set_players_roles(game: dict[str, Any]) -> None:
         """Обновляет роли игроков в словаре игры "game"."""
@@ -1030,7 +1044,7 @@ async def send_game_roles_messages(game: dict[str, Any]) -> None:
     roles_images: dict[str, str] = await get_role_image_cards()
     tasks: list[Task] = [
         asyncio_create_task(
-            __send_game_roles_message(
+            __send_game_role_message(
                 data=data,
                 roles_images=roles_images,
                 supervisor_id_telegram=game['players_dreaming_order'][game['supervisor_index']],
