@@ -72,8 +72,17 @@ class RedisKeys:
     RULES: str = __PREFIX_CARDS + 'rules'
     WORDS: str = __PREFIX_CARDS + 'words'
 
-    __PREFIX_USER: str = __PREFIX_SRC + 'user_'
-    USER_GAME_LOBBY_NUMBER: str = __PREFIX_USER + 'game_lobby_number_{id_telegram}'
+    __PREFIX_USER: str = __PREFIX_SRC + 'user_{id_telegram}_'
+    USER_GAME_LOBBY_NUMBER: str = __PREFIX_USER + 'game_lobby_number'
+
+    __PREFIX_USER_MESSAGES: str = __PREFIX_USER + 'messages_'
+    MESSAGES_IN_LOBBY: str = __PREFIX_USER_MESSAGES + 'IN_LOBBY'
+    MESSAGE_GAME_DESTROY: str = __PREFIX_USER_MESSAGES + 'GAME_DESTROY'
+    MESSAGE_GAME_RESULTS: str = __PREFIX_USER_MESSAGES + 'GAME_RESULTS'
+    MESSAGE_RETELL: str = __PREFIX_USER_MESSAGES + 'RETELL'
+    MESSAGE_ROLE: str = __PREFIX_USER_MESSAGES + 'ROLE'
+    MESSAGE_ROUND_STARTED: str = __PREFIX_USER_MESSAGES + 'ROUND_STARTED'
+    MESSAGE_WORD: str = __PREFIX_USER_MESSAGES + 'WORD'
 
 
 redis_engine: Redis = Redis(
