@@ -50,7 +50,12 @@ from app.src.utils.image import (
     get_role_image_cards,
     get_shuffled_words_cards,
 )
-from app.src.utils.message import delete_messages_list
+from app.src.utils.message import (
+    MessagesEvents,
+    delete_messages_list,
+    set_user_messages_to_delete,
+    delete_user_messages,
+)
 from app.src.utils.reply_keyboard import (
     RoutersCommands,
     make_row_keyboard,
@@ -92,9 +97,6 @@ from app.src.validators.user import UserAchievementDescription
 #             'name': 'Иван Иванов (@iVan)',
 #             'chat_id': 87654321,
 #             'id: 1,
-
-#             'messages_to_delete': [],
-#             'card_message_last_id': 0,
 #
 #             'role': 'buka',
 #             'statistic': {
@@ -112,20 +114,22 @@ from app.src.validators.user import UserAchievementDescription
 #     'players_dreaming_order': [12345678, 56781234, ...],
 #     'dreamer_index': 0,
 #     'supervisor_index': 1,
-
+#
+#     'last_check_answer_datetime': '2021-11-01 00:00:00.000000',
 #     'round_correct_count': 0,
 #     'round_incorrect_count': 0,
 #     'round_user_retell_dream_correct': True,
 #     'round_correct_words': ['word1', 'word2', 'word3', ...],
 # }
 
-#     # TODO. Можно ограничить количество карт. В игре участвует N игроков,
-#             в раунде используется не более N слов, тогда нужно N*M слов.
-#     'game_cards_ids': {
-#         0: ('word_name', 1234),
-#         1: ('word_name, 1235),
-#         ...
-#     },
+# INFO. Словарь с картинками для игры (хранится в Redis):
+# # TODO. Можно ограничить количество карт. В игре участвует N игроков,
+#         в раунде используется не более N слов, тогда нужно N*M слов.
+# 'game_cards_ids': {
+#     0: ('word_name', 1234),
+#     1: ('word_name, 1235),
+#     ...
+# },
 
 
 class GameForm(StatesGroup):
@@ -147,17 +151,32 @@ class GameForm(StatesGroup):
 # -----------------------------------------------------------------------------
 
 
-# INFO. Протестировано ✅
+NUMS_EMOJI: dict[str, str] = {
+    1: '1️⃣',
+    2: '2️⃣',
+    3: '3️⃣',
+    4: '4️⃣',
+    5: '5️⃣',
+    6: '6️⃣',
+    7: '7️⃣',
+    8: '8️⃣',
+    9: '9️⃣',
+    10: '🔟',
+}
+
+
 def form_lobby_host_message(game: dict[str, Any]) -> str:
     """Формирует сообщение для хоста лобби."""
-    players: str = '\n'.join(f'- {player["name"]}' for player in game['players'].values())
+    text: str = '\n'.join(
+        f'{NUMS_EMOJI[i + 1]} {player["name"]}'
+        for i, player in enumerate(game['players'].values())
+    )
     return (
         'Список сновидцев:\n'
-        f'{players}'
+        f'{text}'
     )
 
 
-# INFO. Протестировано ✅
 def process_avaliable_game_numbers(
     get: bool = False,
     add_number: str | None = None,
@@ -175,12 +194,13 @@ def process_avaliable_game_numbers(
     )
 
 
-# INFO. Протестировано ✅
 async def send_game_start_messages(game: dict[str, Any]) -> None:
     """Отправляет сообщение игрокам в начале игры."""
 
     async def __send_game_start_message(chat_id: int) -> None:
         """Задача по отправке сообщения игроку в начале игры."""
+        await delete_user_messages(chat_id=chat_id, event_key=MessagesEvents.IN_LOBBY)
+
         messages_ids: list[int] = []
         for t in (
             'Твое путешествие начинается через..',
@@ -195,11 +215,8 @@ async def send_game_start_messages(game: dict[str, Any]) -> None:
                 reply_markup=ReplyKeyboardRemove(),
             )
             messages_ids.append(message.message_id)
-            await asyncio_sleep(1)
-        await delete_messages_list(
-            chat_id=chat_id,
-            messages_ids=messages_ids,
-        )
+            await asyncio_sleep(2)
+        await delete_messages_list(chat_id=chat_id, messages_ids=messages_ids)
 
     tasks: list[Task] = [
         asyncio_create_task(__send_game_start_message(chat_id=data['chat_id']))
@@ -208,7 +225,6 @@ async def send_game_start_messages(game: dict[str, Any]) -> None:
     await asyncio_gather(*tasks)
 
 
-# INFO. Протестировано ✅
 async def setup_game_data(game: dict[str, Any]) -> None:
     """Подготавливает данные для игры."""
     for k in ('host_chat_id', 'host_lobby_message_id'):
@@ -228,6 +244,7 @@ async def setup_game_data(game: dict[str, Any]) -> None:
             'dreamer_index': 0,
             'supervisor_index': 1,
 
+            'last_check_answer_datetime': '2001-01-01 00:00:00.000000',
             'round_correct_count': 0,
             'round_incorrect_count': 0,
             'round_user_retell_dream_correct': False,
@@ -237,9 +254,6 @@ async def setup_game_data(game: dict[str, Any]) -> None:
     for data in game['players'].values():
         data.update(
             {
-                'messages_to_delete': [],
-                'card_message_last_id': 0,
-                'set_penalty_last_id': 0,
                 'statistic': {
                     'top_penalties': 0,
                     'top_score_buka': 0,
@@ -271,10 +285,7 @@ async def process_in_game(
         state_value=state_value,
     ):
         await process_game_in_redis(redis_key=game['redis_key'], release=True)
-        return await delete_messages_list(
-            chat_id=message.chat.id,
-            messages_ids=[message.message_id],
-        )
+        return await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
 
     # INFO. Подтверждение действий.
     if state_value == GameForm.in_game_destroy_game:
@@ -298,7 +309,7 @@ async def process_in_game(
 
     # INFO. Начало следующего раунда.
     elif message.text == RoutersCommands.START_ROUND:
-        await __process_in_game_start_round(game=game)
+        await __process_in_game_start_round(game=game, message=message)
 
     # INFO. Выход из / удаление из игры.
     elif message.text == RoutersCommands.GAME_DESTROY:
@@ -387,18 +398,22 @@ async def process_in_game_destroy_game_confirm(
 
     # TODO. Надо записать answer для удаления. Сейчас удаляется через range() в callback.
     async def __send_destroy_game_message(
-        chat_id: int,
+        data: dict[str, Any],
         supervisor_chat_id: int,
     ) -> None:
         """Задача по уведомлению игроков о принудительном завершении игры."""
-        if chat_id == str(supervisor_chat_id):
+        if data['chat_id'] == str(supervisor_chat_id):
             text: str = 'Сон был прерван..'
         else:
             text: str = 'Хранитель сна прервал твое путешествие..'
-        await bot.send_message(
-            chat_id=chat_id,
+        answer: Message = await bot.send_message(
+            chat_id=data['chat_id'],
             text=text,
             reply_markup=KEYBOARD_HOME,
+        )
+        await set_user_messages_to_delete(
+            event_key=MessagesEvents.GAME_DESTROY,
+            messages=[answer],
         )
 
     # INFO. Такое приходит из лобби.
@@ -409,15 +424,12 @@ async def process_in_game_destroy_game_confirm(
     if not from_lobby:
         if message.text not in (RoutersCommands.YES, RoutersCommands.NO):
             await process_game_in_redis(redis_key=game['redis_key'], release=True)
-            return await delete_messages_list(
-                chat_id=message.chat.id,
-                messages_ids=[message.message_id],
-            )
+            return await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
         elif message.text == RoutersCommands.NO:
             await state.set_state(state=GameForm.in_game)
             await delete_messages_list(
                 chat_id=message.chat.id,
-                messages_ids=list(
+                messages_ids=tuple(
                     range(
                         game['players'][str(message.from_user.id)]['last_end_game_message_id'],
                         message.message_id,
@@ -436,7 +448,7 @@ async def process_in_game_destroy_game_confirm(
             pass
         await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=list(
+            messages_ids=tuple(
                 range(
                     game['players'][str(message.from_user.id)]['last_end_game_message_id'],
                     message.message_id + 1,
@@ -451,7 +463,7 @@ async def process_in_game_destroy_game_confirm(
     tasks: list[Task] = [
         asyncio_create_task(
             __send_destroy_game_message(
-                chat_id=data['chat_id'],
+                data=data,
                 supervisor_chat_id=message.chat.id,
             ),
         )
@@ -486,15 +498,13 @@ async def __process_in_game_drop_game_confirm(
 ) -> None:
     """Обрабатывает результат ответа на команду "Покинуть игру"."""
     if message.text not in (RoutersCommands.YES, RoutersCommands.NO):
-        return await delete_messages_list(
-            chat_id=message.chat.id,
-            messages_ids=[message.message_id],
-        )
+        return await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
 
     if message.text == RoutersCommands.NO:
         await state.set_state(state=GameForm.in_game)
         await delete_messages_list(
             chat_id=message.chat.id,
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
             messages_ids=game['players'][str(message.from_user.id)]['last_drop_game_message_ids'] + [message.message_id],
         )
         await process_game_in_redis(redis_key=game['redis_key'], release=True)
@@ -507,10 +517,7 @@ async def __process_in_game_drop_game_confirm(
         reply_markup=ReplyKeyboardRemove(),
     )
     await asyncio_sleep(5)
-    await delete_messages_list(
-        chat_id=message.chat.id,
-        messages_ids=answer.message_id,
-    )
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(answer.message_id,))
     await command_start(message=message)
 
     # async with async_session_maker() as session:
@@ -555,6 +562,7 @@ async def __process_in_game_set_penalty_confirm(
     if message.text == RoutersCommands.CANCEL:
         await process_game_in_redis(redis_key=game['redis_key'], release=True)
         await state.set_state(state=GameForm.in_game)
+        # !!!!!!!!!!!!!!!!!!!!!
         await delete_messages_list(game['players'][str(message.from_user.id)]['last_penalty_message_id'], message.message_id)
         # TODO. Может быть удалять фотографию посылать заново?
         await bot.send_message(
@@ -573,15 +581,12 @@ async def __process_in_game_set_penalty_confirm(
         game['players'][penalty_id_telegram]['penalties'] += 1
         await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
         await state.set_state(state=GameForm.in_game)
-        messages_ids: list[int] = (game['players'][str(message.from_user.id)]['last_penalty_message_id'], message.message_id)
+        messages_ids: tuple[int] = (game['players'][str(message.from_user.id)]['last_penalty_message_id'], message.message_id)
     else:
         await process_game_in_redis(redis_key=game['redis_key'], release=True)
-        messages_ids: list[int] = [message.message_id]
+        messages_ids: tuple[int] = (message.message_id,)
 
-    await delete_messages_list(
-        chat_id=message.chat.id,
-        messages_ids=messages_ids,
-    )
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=messages_ids)
     if penalty_id_telegram:
         # TODO. Может быть удалять фотографию посылать заново?
         await bot.send_message(
@@ -591,6 +596,8 @@ async def __process_in_game_set_penalty_confirm(
         )
 
 
+# TODO. Добавить для слов глобальную статистику:
+#       количество правильных/неправильных угадываний.
 async def __process_in_game_answer(
     game: dict[str, Any],
     is_correct: bool,
@@ -602,32 +609,44 @@ async def __process_in_game_answer(
 
     Ставит задачу отправки нового слова игрокам.
     """
-    # TODO. Добавить для слов глобальную статистику:
-    #       количество правильных/неправильных угадываний.
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
+
+    # INFO. Проверка от дабл-кликов.
+    datetime_now: datetime = datetime.now()
+    last_check_answer_datetime: datetime = datetime.fromisoformat(game['last_check_answer_datetime'])
+    if datetime_now < last_check_answer_datetime + timedelta(seconds=5):
+        return
+    game['last_check_answer_datetime'] = datetime_now.strftime('%Y-%m-%d %H:%M:%S.%f')
+
     if is_correct:
         game['round_correct_count'] += 1
         card_ids: list[str, str] = redis_get(key=RedisKeys.GAME_WORDS.format(number=game['number']))
         game['round_correct_words'].append(card_ids[game['card_index']][0])
     else:
         game['round_incorrect_count'] += 1
-    await delete_messages_list(
-        chat_id=message.chat.id,
-        messages_ids=[message.message_id],
-    )
     await __send_new_word(game=game)
 
 
-async def __process_in_game_start_round(game: dict[str, Any]) -> None:
+async def __process_in_game_start_round(
+    game: dict[str, Any],
+    message: Message,
+) -> None:
     """Обрабатывает команду "Начать раунд"."""
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
+
     game['status'] = GameStatus.ROUND_IS_STARTED
-    for id_telegram, data in game['players'].items():
-        if id_telegram == game['players_dreaming_order'][game['supervisor_index']]:
-            await bot.send_message(
-                chat_id=data['chat_id'],
-                text='Раунд начался!',
-                reply_markup=KEYBOARD_LOBBY_SUPERVISOR_IN_GAME,
-            )
+    answer: Message = await bot.send_message(
+        chat_id=game['players_dreaming_order'][game['supervisor_index']],
+        text='Раунд начался!',
+        reply_markup=KEYBOARD_LOBBY_SUPERVISOR_IN_GAME,
+    )
+    await set_user_messages_to_delete(
+        event_key=MessagesEvents.ROUND_STARTED,
+        messages=[answer],
+    )
+
     await __send_new_word(game=game)
+
     scheduler.add_job(
         id=SchedulerJobNames.GAME_END_ROUND.format(number=game['number']),
         func=__process_in_game_end_round_ask_for_retail,
@@ -658,11 +677,9 @@ async def __process_in_game_home(
             )
         await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
+    await delete_user_messages(chat_id=message.chat.id, all_event_keys=True)
     await state.clear()
-    await delete_messages_list(
-        chat_id=message.chat.id,
-        messages_ids=player.get('messages_to_delete', []) + [message.message_id],
-    )
     await command_start(message=message)
 
 
@@ -676,13 +693,16 @@ async def __process_in_game_end_game(
         chat_id: int,
     ) -> None:
         """Задача по уведомлению игроков о завершении игры."""
-        await bot.send_message(
+        answer: Message = await bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=KEYBOARD_HOME,
         )
+        await set_user_messages_to_delete(
+            event_key=MessagesEvents.GAME_RESULTS,
+            messages=[answer],
+        )
 
-    # INFO. Протестировано ✅
     async def __process_in_game_end_game_update_user_db(
         data: dict[str, Any],
     ) -> None:
@@ -706,7 +726,6 @@ async def __process_in_game_end_game(
 
             await session.commit()
 
-    # INFO. Протестировано ✅
     def __set_game_achievements(game: dict[str, Any]) -> None:
         """Выдает достижения за игру."""
         keys: tuple[str] = (
@@ -725,7 +744,6 @@ async def __process_in_game_end_game(
                 if data['statistic'].get(key, None) == max_value:
                     data['achievements'][key] = 1
 
-    # INFO. Протестировано ✅
     def __set_game_statistics(game: dict[str, Any]) -> None:
         """Выдает итоговые очки за игру."""
         for data in game['players'].values():
@@ -744,7 +762,6 @@ async def __process_in_game_end_game(
             if data['statistic'].get('top_score', 0) == max_score:
                 data['statistic']['total_wins'] = 1
 
-    # INFO. Протестировано ✅
     def __get_results_text(game: dict[str, Any]) -> str:
         """Возвращает текст с результатами игры."""
         sorted_players = sorted(
@@ -837,23 +854,37 @@ async def __process_in_game_end_round_ask_for_retail(redis_key: str) -> None:
         if chat_id == game['players_dreaming_order'][game['dreamer_index']]:
             return
 
-        await bot.send_message(
+        await delete_user_messages(
+            chat_id=chat_id,
+            event_key=MessagesEvents.WORD,
+        )
+
+        answer: Message = await bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=KEYBOARD_HOME,
         )
+        messages_to_delete: list[Message] = [answer]
         if chat_id == game['players_dreaming_order'][game['supervisor_index']]:
             if game['round_correct_words']:
                 reply_markup: ReplyKeyboardMarkup = KEYBOARD_LOBBY_SUPERVISOR_IN_GAME_RETELL
             else:
                 reply_markup: ReplyKeyboardMarkup = KEYBOARD_LOBBY_SUPERVISOR_IN_GAME_RETELL_FAIL
-            await bot.send_message(
+            answer: Message = await bot.send_message(
                 chat_id=chat_id,
                 text='Верно ли сновидец пересказал свой сон?',
                 reply_markup=reply_markup,
             )
+            messages_to_delete.append(answer)
+        await set_user_messages_to_delete(event_key=MessagesEvents.RETELL, messages=messages_to_delete)
 
     game: dict[str, Any] = await process_game_in_redis(redis_key=redis_key, get=True)
+
+    await delete_user_messages(
+        chat_id=game['players_dreaming_order'][game['supervisor_index']],
+        event_key=MessagesEvents.ROUND_STARTED,
+    )
+
     text: str = (
         'Та-да! А вот и утро! Но перед тем как будить нашего сновидца, '
         'попросите его в мельчайших подробностях вспомнить свой сон. '
@@ -890,7 +921,18 @@ async def __process_in_game_end_round_ask_for_retail_confirm(
     message: Message,
 ) -> None:
     """Обрабатывает результат ответа на правильность пересказа сна сновидца."""
-    await delete_messages_list(chat_id=message.chat.id, messages_ids=[message.message_id])
+
+    async def __delete_retell_messages(chat_id: str) -> None:
+        """Задача по удалению сообщений о пересказе сна сновидца."""
+        await delete_user_messages(chat_id=chat_id, event_key=MessagesEvents.RETELL)
+
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
+    tasks: tuple[Task] = (
+        __delete_retell_messages(chat_id=data['chat_id'])
+        for data in game['players'].values()
+    )
+    await asyncio_gather(*tasks)
+
     if game['round_correct_words'] and message.text == RoutersCommands.WORD_CORRECT:
         game['round_user_retell_dream_correct'] = True
     else:
@@ -904,7 +946,6 @@ async def __process_in_game_end_round_ask_for_retail_confirm(
 # -----------------------------------------------------------------------------
 
 
-# INFO. Протестировано ✅
 async def process_game_in_redis(
     redis_key: str | None = None,
     message: Message | None = None,
@@ -949,28 +990,29 @@ async def send_game_roles_messages(game: dict[str, Any]) -> None:
     """Отправляет сообщения игрокам с их ролями."""
 
     async def __send_game_roles_message(
-        id_telegram: str,
-        player_data: dict[str, Any],
+        data: dict[str, Any],
         roles_images: dict[str, str],
         supervisor_id_telegram: str,
     ):
         """Задача по отправке сообщения с ролью игроку."""
-        if player_data['role'] == GameRoles.DREAMER:
+        if data['role'] == GameRoles.DREAMER:
             reply_markup: ReplyKeyboardRemove = ReplyKeyboardRemove()
         else:
             reply_markup: ReplyKeyboardMarkup = KEYBOARD_HOME
-        await bot.send_photo(
-            chat_id=player_data['chat_id'],
+        answer: Message = await bot.send_photo(
+            chat_id=data['chat_id'],
             # TODO. Возможно стоит скрыть за спойлер.
-            photo=roles_images[player_data['role']],
-            # TODO. Возможно стоит скрыть за спойлер.
-            caption=__get_role_description(role=player_data['role']),
+            photo=roles_images[data['role']],
+            caption=__get_role_description(role=data['role']),
             reply_markup=reply_markup,
         )
-        if id_telegram == supervisor_id_telegram:
-            await __notify_supervisor(chat_id=player_data['chat_id'])
+        messages: list[Message] = [answer]
 
-    # INFO. Протестировано ✅
+        if data['chat_id'] == supervisor_id_telegram:
+            messages.append(await __notify_supervisor(chat_id=data['chat_id']))
+
+        await set_user_messages_to_delete(event_key=MessagesEvents.ROLE, messages=messages)
+
     def __set_players_roles(game: dict[str, Any]) -> None:
         """Обновляет роли игроков в словаре игры "game"."""
         roles: list[str] = __get_players_roles(players_count=len(game['players']))
@@ -989,18 +1031,18 @@ async def send_game_roles_messages(game: dict[str, Any]) -> None:
     tasks: list[Task] = [
         asyncio_create_task(
             __send_game_roles_message(
-                id_telegram=id_telegram,
-                player_data=player_data,
+                data=data,
                 roles_images=roles_images,
                 supervisor_id_telegram=game['players_dreaming_order'][game['supervisor_index']],
             ),
         )
-        for id_telegram, player_data in game['players'].items()
+        for data in game['players'].values()
     ]
     await asyncio_gather(*tasks)
 
+    await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
-# INFO. Протестировано ✅
+
 def __choose_drop_game_text(
     is_leave: bool = False,
     is_run_out_of_players: bool = False,
@@ -1027,7 +1069,6 @@ def __choose_drop_game_text(
     return choice(choses)
 
 
-# INFO. Протестировано ✅
 async def __game_drop_move_indexes(
     game: dict[str, Any],
     message: Message,
@@ -1061,7 +1102,6 @@ async def __game_drop_move_indexes(
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
-# INFO. Протестировано ✅
 def __get_players_roles(players_count: int) -> list[str]:
     """
     Формирует список ролей игроков в зависимости от количества.
@@ -1088,13 +1128,11 @@ def __get_players_roles(players_count: int) -> list[str]:
     return [GameRoles.FAIRY] * fairy + [GameRoles.BUKA] * buka + [GameRoles.SANDMAN] * sandman
 
 
-# INFO. Протестировано ✅
 def __get_players_dreaming_order(players: list[str]) -> list[str]:
     shuffle(players)
     return players
 
 
-# INFO. Протестировано ✅
 def __get_role_description(role: str) -> str:
     if role == GameRoles.BUKA:
         return (
@@ -1132,14 +1170,13 @@ def __get_role_description(role: str) -> str:
         )
 
 
-async def __notify_supervisor(chat_id: int) -> None:
+async def __notify_supervisor(chat_id: int) -> Message:
     """Уведомляет Хранителя сна о его роли."""
-    await bot.send_message(
+    return await bot.send_message(
         chat_id=chat_id,
         text=__get_role_description(role=GameRoles.SUPERVISOR),
         reply_markup=KEYBOARD_LOBBY_SUPERVISOR,
     )
-
 
 
 # TODO: Доделать
@@ -1148,7 +1185,19 @@ async def __process_in_game_end_round(
     skip_results: bool = False,
 ) -> None:
     """Завершает раунд."""
+
+    async def __process_in_game_end_round_delete_roles(chat_id: str | int) -> None:
+        await delete_user_messages(chat_id=chat_id, event_key=MessagesEvents.ROLE)
+
     game: dict[str, Any] = await process_game_in_redis(redis_key=redis_key, get=True)
+
+    # TODO. Заменить на tuple везде.
+    tasks: tuple[Task] = (
+        __process_in_game_end_round_delete_roles(chat_id=data['chat_id'])
+        for data in game['players'].values()
+    )
+    await asyncio_gather(*tasks)
+
     if not skip_results:
         __set_round_achievements(game=game)
         __set_round_points(game=game)
@@ -1181,16 +1230,21 @@ async def __send_new_word(game: dict[str, Any]) -> None:
         game_cards_ids: list[str, str],
     ) -> None:
         """Задача по отправке новой карточки слова игроку."""
-        await delete_messages_list(
+        if id_telegram == game['players_dreaming_order'][game['dreamer_index']]:
+            return
+
+        await delete_user_messages(
             chat_id=data['chat_id'],
-            messages_ids=[data['card_message_last_id']],
+            event_key=MessagesEvents.WORD,
         )
-        if id_telegram != game['players_dreaming_order'][game['dreamer_index']]:
-            message: Message = await bot.send_photo(
-                chat_id=data['chat_id'],
-                photo=game_cards_ids[game['card_index']][1],
-            )
-            data['card_message_last_id'] = message.message_id
+        answer: Message = await bot.send_photo(
+            chat_id=data['chat_id'],
+            photo=game_cards_ids[game['card_index']][1],
+        )
+        await set_user_messages_to_delete(
+            event_key=MessagesEvents.WORD,
+            messages=(answer,),
+        )
 
     game['card_index'] += 1
     game_cards_ids: list[str, str] = redis_get(key=RedisKeys.GAME_WORDS.format(number=game['number']))
@@ -1209,7 +1263,6 @@ async def __send_new_word(game: dict[str, Any]) -> None:
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
-# INFO. Протестировано ✅
 def __set_round_achievements(
     game: dict[str, Any],
 ):
@@ -1230,7 +1283,6 @@ def __set_round_achievements(
             data['achievements']['dream_master'] = 1
 
 
-# INFO. Протестировано ✅
 def __set_round_points(
     game: dict[str, Any],
 ):
