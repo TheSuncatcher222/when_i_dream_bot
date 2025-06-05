@@ -15,7 +15,10 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from app.src.config.config import Timezones
+from app.src.config.config import (
+    Timezones,
+    settings,
+)
 from app.src.crud.user import user_crud
 from app.src.crud.user_statistic import user_statistic_crud
 from app.src.database.database import (
@@ -164,10 +167,15 @@ async def __create_lobby(
 ) -> dict[str, Any]:
     """Создает лобби."""
     while 1:
-        number: str = ''.join(choices('0123456789', k=4))
-        key: str = RedisKeys.GAME_LOBBY.format(number=number)
-        if redis_check_exists(key=key):
-            continue
+        # INFO. Двойка зарезервирована за создателем.
+        if user.id_telegram == settings.ADMIN_NOTIFY_ID:
+            number: str = '2️⃣2️⃣2️⃣'
+            key: str = RedisKeys.GAME_LOBBY.format(number=number)
+        else:
+            number: str = ''.join(choices('013456789', k=4))
+            key: str = RedisKeys.GAME_LOBBY.format(number=number)
+            if redis_check_exists(key=key):
+                continue
         break
 
     redis_set(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user.id_telegram)), value=number)
