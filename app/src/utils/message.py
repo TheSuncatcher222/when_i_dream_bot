@@ -21,6 +21,7 @@ class MessagesEvents:
 
     IN_LOBBY: str = 'IN_LOBBY'
     GAME_DESTROY: str = 'GAME_DESTROY'
+    GAME_DROP: str = 'GAME_DROP'
     GAME_RESULTS: str = 'GAME_RESULTS'
     RETELL: str = 'RETELL'
     ROLE: str = 'ROLE'
@@ -32,6 +33,7 @@ class MessagesEvents:
         return (
             cls.IN_LOBBY,
             cls.GAME_DESTROY,
+            cls.GAME_DROP,
             cls.GAME_RESULTS,
             cls.RETELL,
             cls.ROLE,
@@ -46,6 +48,8 @@ class MessagesEvents:
             return RedisKeys.MESSAGES_IN_LOBBY.format(id_telegram=chat_id)
         elif event_key == cls.GAME_DESTROY:
             return RedisKeys.MESSAGE_GAME_DESTROY.format(id_telegram=chat_id)
+        elif event_key == cls.GAME_DROP:
+            return RedisKeys.MESSAGE_GAME_DROP.format(id_telegram=chat_id)
         elif event_key == cls.GAME_RESULTS:
             return RedisKeys.MESSAGE_GAME_RESULTS.format(id_telegram=chat_id)
         elif event_key == cls.RETELL:
