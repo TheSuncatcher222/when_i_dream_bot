@@ -23,7 +23,11 @@ from app.src.utils.game import (
     process_in_game,
     process_game_in_redis,
 )
-from app.src.utils.message import delete_messages_list
+from app.src.utils.message import (
+    MessagesEvents,
+    delete_messages_list,
+    set_user_messages_to_delete,
+)
 from app.src.utils.reply_keyboard import (
     RoutersCommands,
     make_row_keyboard,
@@ -51,7 +55,7 @@ async def command_game_join(
         await asyncio_sleep(2)
         return await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=[message.message_id, answer.message_id],
+            messages_ids=(message.message_id, answer.message_id),
         )
 
     async with async_session_maker() as session:
@@ -61,7 +65,7 @@ async def command_game_join(
         )
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[user.message_main_last_id, message.message_id],
+        messages_ids=(user.message_main_last_id, message.message_id),
     )
 
     rows: list[list[str]] = [[RoutersCommands.HOME]]
@@ -96,7 +100,7 @@ async def asked_for_password(
         await state.clear()
         await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=[state_data['_command_game_join_message_id'], message.message_id],
+            messages_ids=(state_data['_command_game_join_message_id'], message.message_id),
         )
         return await command_start(message=message)
 
@@ -119,12 +123,12 @@ async def asked_for_password(
         await asyncio_sleep(1)
         return await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=[message.message_id, answer.message_id],
+            messages_ids=(message.message_id, answer.message_id),
         )
 
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[state_data['_command_game_join_message_id'], message.message_id],
+        messages_ids=(state_data['_command_game_join_message_id'], message.message_id),
     )
     answer: Message = await message.answer(
         text='Узнай у Хранителя сна пароль и сообщи мне.',
@@ -151,7 +155,7 @@ async def add_to_game(
         await state.clear()
         await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=[state_data['_asked_for_password_message_id'], message.message_id],
+            messages_ids=(state_data['_asked_for_password_message_id'], message.message_id),
         )
         return await command_start(message=message)
 
@@ -164,7 +168,7 @@ async def add_to_game(
         await asyncio_sleep(1)
         return await delete_messages_list(
             chat_id=message.chat.id,
-            messages_ids=[message.message_id, answer.message_id],
+            messages_ids=(message.message_id, answer.message_id),
         )
 
     async with async_session_maker() as session:
@@ -185,7 +189,7 @@ async def add_to_game(
 
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[state_data['_asked_for_password_message_id'], message.message_id],
+        messages_ids=(state_data['_asked_for_password_message_id'], message.message_id),
     )
 
     await state.set_state(state=GameForm.in_game)
@@ -197,7 +201,10 @@ async def add_to_game(
         reply_markup=KEYBOARD_HOME,
     )
 
-    game['players'][str(user.id_telegram)]['messages_to_delete'] = [answer.message_id]
+    await set_user_messages_to_delete(
+        event_key=MessagesEvents.IN_LOBBY,
+        messages=[answer],
+    )
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
     redis_set(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user.id_telegram)), value=game['number'])
     if len(game['players']) == GameParams.PLAYERS_MAX:
