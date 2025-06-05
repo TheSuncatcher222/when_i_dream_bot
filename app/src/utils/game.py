@@ -167,13 +167,9 @@ NUMS_EMOJI: dict[str, str] = {
 
 def form_lobby_host_message(game: dict[str, Any]) -> str:
     """Формирует сообщение для хоста лобби."""
-    text: str = '\n'.join(
+    return '\n'.join(
         f'{NUMS_EMOJI[i + 1]} {player["name"]}'
         for i, player in enumerate(game['players'].values())
-    )
-    return (
-        'Список сновидцев:\n'
-        f'{text}'
     )
 
 
