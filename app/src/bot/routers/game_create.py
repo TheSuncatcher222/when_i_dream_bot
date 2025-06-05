@@ -35,7 +35,11 @@ from app.src.utils.game import (
     send_game_start_messages,
     setup_game_data,
 )
-from app.src.utils.message import delete_messages_list
+from app.src.utils.message import (
+    MessagesEvents,
+    delete_messages_list,
+    set_user_messages_to_delete,
+)
 from app.src.utils.redis_app import (
     redis_check_exists,
     redis_set,
@@ -48,7 +52,6 @@ from app.src.validators.game import (
     GameParams,
     GameStatus,
 )
-
 
 router: Router = Router()
 
@@ -68,21 +71,15 @@ async def command_game_create(
         )
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[user.message_main_last_id, message.message_id],
+        messages_ids=(user.message_main_last_id, message.message_id),
     )
 
-    async with async_session_maker() as session:
-        user: User = await user_crud.retrieve_by_id_telegram(
-            obj_id_telegram=message.from_user.id,
-            session=session,
-        )
-    await __create_lobby(user=user, message=message)
-
-    game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
+    game: dict[str, Any] = await __create_lobby(user=user, message=message)
     await state.set_state(state=GameForm.in_lobby)
+
     # INFO. Разделено на 2 части, так как нельзя редактировать сообщение,
     #       к которому привязана reply-клавиатура.
-    await message.answer(
+    answer_1: Message = await message.answer(
         text=(
             'Приветствую, капитан! Ты готов отправиться со своей командой в новое '
             'путешествие по миру снов? Отлично! Игра успешно создана!\n'
@@ -91,9 +88,13 @@ async def command_game_create(
         ),
         reply_markup=KEYBOARD_LOBBY_HOST,
     )
-    answer: Message = await message.answer(text=form_lobby_host_message(game=game))
+    answer_2: Message = await message.answer(text=form_lobby_host_message(game=game))
+    await set_user_messages_to_delete(
+        event_key=MessagesEvents.IN_LOBBY,
+        messages=[answer_1, answer_2],
+    )
 
-    game['host_lobby_message_id'] = answer.message_id
+    game['host_lobby_message_id'] = answer_2.message_id
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
@@ -102,18 +103,16 @@ async def start_game(
     message: Message,
     state: FSMContext,
 ) -> None:
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
     if message.text == RoutersCommands.GAME_DROP:
         return await process_in_game_destroy_game_confirm(
             message=message,
             state=state,
             from_lobby=True,
         )
-
     if message.text != RoutersCommands.GAME_START:
-        return await delete_messages_list(
-            chat_id=message.chat.id,
-            messages_ids=[message.message_id],
-        )
+        return
+
     game: dict[str, Any] = await process_game_in_redis(message=message, get=True)
     if not await __validate_players_count(game=game, message=message):
         await process_game_in_redis(redis_key=game['redis_key'], release=True)
@@ -162,8 +161,8 @@ async def in_game(
 async def __create_lobby(
     user: User,
     message: Message,
-) -> str:
-    """Создает лобби и сохраняет в Redis."""
+) -> dict[str, Any]:
+    """Создает лобби."""
     while 1:
         number: str = ''.join(choices('0123456789', k=4))
         key: str = RedisKeys.GAME_LOBBY.format(number=number)
@@ -172,24 +171,21 @@ async def __create_lobby(
         break
 
     redis_set(key=RedisKeys.USER_GAME_LOBBY_NUMBER.format(id_telegram=str(user.id_telegram)), value=number)
-    await process_game_in_redis(
-        redis_key=key,
-        set_game={
-            'number': number,
-            'password': ''.join(choices('0123456789', k=4)),
-            'redis_key': key,
-            'status': GameStatus.IN_LOBBY,
-            'host_chat_id': message.chat.id,
-            'players': {
-                str(user.id_telegram): {
-                    'name': user.get_full_name(),
-                    'id': user.id,
-                    'chat_id': str(message.chat.id),
-                },
+    process_avaliable_game_numbers(add_number=number)
+    return {
+        'number': number,
+        'password': ''.join(choices('0123456789', k=4)),
+        'redis_key': key,
+        'status': GameStatus.IN_LOBBY,
+        'host_chat_id': message.chat.id,
+        'players': {
+            str(user.id_telegram): {
+                'name': user.get_full_name(),
+                'id': user.id,
+                'chat_id': str(message.chat.id),
             },
         },
-    )
-    process_avaliable_game_numbers(add_number=number)
+    }
 
 
 async def __validate_players_count(
@@ -208,7 +204,7 @@ async def __validate_players_count(
     await asyncio_sleep(2)
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[message.message_id, answer.message_id],
+        messages_ids=(message.message_id, answer.message_id),
     )
     return False
 
