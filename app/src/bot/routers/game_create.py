@@ -88,6 +88,9 @@ async def command_game_create(
             'путешествие по миру снов? Отлично! Игра успешно создана!\n'
             f'Номер: {game['number']}\n'
             f'Пароль: {game['password']}'
+            '\n\n'
+            'Проверь список сновидцев ниже: когда вся команда будет в сборе, '
+            f'жми "{RoutersCommands.GAME_START}". Желаю добрых снов!'
         ),
         reply_markup=KEYBOARD_LOBBY_HOST,
     )

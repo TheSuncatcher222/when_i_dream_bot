@@ -20,7 +20,6 @@ from app.src.utils.game import (
     GameForm,
     form_lobby_host_message,
     process_avaliable_game_numbers,
-    process_in_game,
     process_game_in_redis,
 )
 from app.src.utils.message import (
@@ -116,6 +115,8 @@ async def asked_for_password(
         text: str = 'Такого сна не существует.'
     elif game['status'] != GameStatus.IN_LOBBY:
         text: str = 'Игроки уже крепко спят, присоединиться не получится.'
+    elif len(game['players']) >= GameParams.PLAYERS_MAX:
+        text: str = 'В выбранном сне уже присутствует максимальное количество сновидцев.'
     else:
         success: bool = True
     if not success:
@@ -195,8 +196,9 @@ async def add_to_game(
     await state.set_state(state=GameForm.in_game)
     answer: Message = await message.answer(
         text=(
-            'Успешно! Как только все сновидцы будут готовы, '
-            'Хранитель сна начнет ваше путешествие.'
+            'Успешно! Когда вся команда будет в сборе, Хранитель снов '
+            'начнет путешествие, а я тебе сразу же пришлю об этом уведомление! '
+            'Желаю добрых снов!'
         ),
         reply_markup=KEYBOARD_HOME,
     )
