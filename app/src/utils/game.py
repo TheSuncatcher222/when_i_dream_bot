@@ -569,19 +569,25 @@ async def __process_in_game_set_penalty(
     state: FSMContext,
 ) -> None:
     """Обрабатывает команду "Пенальти"."""
-    game['players'][str(message.from_user.id)]['last_penalty_message_id'] = message.message_id
-    await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
 
     rows: list[tuple[str]] = (
         [(RoutersCommands.CANCEL,)]
         +
         [(player['name'],) for player in game['players'].values()]
     )
-    await message.reply(
+    answer: Message = await message.answer(
         text='Кто нарушил правила мира снов?',
         reply_markup=make_row_keyboard(rows=rows),
     )
+    await set_user_messages_to_delete(
+        event_key=MessagesEvents.SET_PENALTY,
+        messages=[answer],
+    )
     await state.set_state(state=GameForm.in_game_set_penalty)
+
+    redis_set(key=RedisKeys.GAME_SET_PENALTY.format(number=game['number']), value=1)
+    await process_game_in_redis(redis_key=game['redis_key'], release=True)
 
 
 # TODO. Зарефакторить функцию.
@@ -591,17 +597,27 @@ async def __process_in_game_set_penalty_confirm(
     state: FSMContext,
 ):
     """Обрабатывает результат ответа на команду "Выдать штраф"."""
-    if message.text == RoutersCommands.CANCEL:
-        await process_game_in_redis(redis_key=game['redis_key'], release=True)
+
+    async def __exit(game: dict[str, Any]) -> None:
+        redis_delete(key=RedisKeys.GAME_SET_PENALTY.format(number=game['number']))
+        await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+
         await state.set_state(state=GameForm.in_game)
-        # !!!!!!!!!!!!!!!!!!!!!
-        await delete_messages_list(game['players'][str(message.from_user.id)]['last_penalty_message_id'], message.message_id)
-        # TODO. Может быть удалять фотографию посылать заново?
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text=' ',
-            reply_markup=KEYBOARD_LOBBY_SUPERVISOR_IN_GAME,
+
+        await delete_user_messages(chat_id=message.chat.id, event_key=MessagesEvents.SET_PENALTY)
+        # INFO. Затрется reply-клавиатура, надо удалить слово и выслать заново.
+        return await __send_new_word_to_player(
+            id_telegram=str(message.from_user.id),
+            data=game['players'][str(message.from_user.id)],
+            game=game,
+            game_cards_ids=redis_get(key=RedisKeys.GAME_WORDS.format(number=game['number'])),
+            send_supervisor_keyboard=True,
         )
+
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
+
+    if message.text == RoutersCommands.CANCEL:
+        return await __exit(game=game)
 
     penalty_id_telegram: str | None = None
     for id_telegram, data in game['players'].items():
@@ -610,22 +626,11 @@ async def __process_in_game_set_penalty_confirm(
             break
 
     if penalty_id_telegram:
-        game['players'][penalty_id_telegram]['penalties'] += 1
+        game['players'][penalty_id_telegram]['statistic']['top_penalties'] += 1
         await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
-        await state.set_state(state=GameForm.in_game)
-        messages_ids: tuple[int] = (game['players'][str(message.from_user.id)]['last_penalty_message_id'], message.message_id)
+        return await __exit(game=game)
     else:
         await process_game_in_redis(redis_key=game['redis_key'], release=True)
-        messages_ids: tuple[int] = (message.message_id,)
-
-    await delete_messages_list(chat_id=message.chat.id, messages_ids=messages_ids)
-    if penalty_id_telegram:
-        # TODO. Может быть удалять фотографию посылать заново?
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text=' ',
-            reply_markup=KEYBOARD_LOBBY_SUPERVISOR_IN_GAME,
-        )
 
 
 # TODO. Добавить для слов глобальную статистику:
@@ -911,6 +916,14 @@ async def __process_in_game_end_round_ask_for_retail(redis_key: str) -> None:
         await set_user_messages_to_delete(event_key=MessagesEvents.RETELL, messages=messages_to_delete)
 
     game: dict[str, Any] = await process_game_in_redis(redis_key=redis_key, get=True)
+    await process_game_in_redis(redis_key=game['redis_key'], release=True)
+    # INFO. Пока назначается пенальти - сообщения окончания раунда перебивают клавиатуру.
+    while 1:
+        if redis_check_exists(key=RedisKeys.GAME_SET_PENALTY.format(number=game['number'])):
+            await asyncio_sleep(1)
+            continue
+        game: dict[str, Any] = await process_game_in_redis(redis_key=redis_key, get=True)
+        break
 
     await delete_user_messages(
         chat_id=game['players_dreaming_order'][game['supervisor_index']],
@@ -1257,30 +1270,6 @@ async def __process_in_game_end_round(
 
 async def __send_new_word(game: dict[str, Any]) -> None:
     """Отправляет новую карточку слова игрокам и смещает индекс карточки в игре."""
-
-    async def __send_new_word_to_player(
-        id_telegram: str,
-        data: dict[str, Any],
-        game: dict[str, Any],
-        game_cards_ids: list[str, str],
-    ) -> None:
-        """Задача по отправке новой карточки слова игроку."""
-        if id_telegram == game['players_dreaming_order'][game['dreamer_index']]:
-            return
-
-        await delete_user_messages(
-            chat_id=data['chat_id'],
-            event_key=MessagesEvents.WORD,
-        )
-        answer: Message = await bot.send_photo(
-            chat_id=data['chat_id'],
-            photo=game_cards_ids[game['card_index']][1],
-        )
-        await set_user_messages_to_delete(
-            event_key=MessagesEvents.WORD,
-            messages=(answer,),
-        )
-
     game['card_index'] += 1
     game_cards_ids: list[str, str] = redis_get(key=RedisKeys.GAME_WORDS.format(number=game['number']))
     tasks: list[Task] = [
@@ -1296,6 +1285,38 @@ async def __send_new_word(game: dict[str, Any]) -> None:
     ]
     await asyncio_gather(*tasks)
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
+
+
+async def __send_new_word_to_player(
+    id_telegram: str,
+    data: dict[str, Any],
+    game: dict[str, Any],
+    game_cards_ids: list[str, str],
+    send_supervisor_keyboard: bool = False,
+) -> None:
+    """Задача по отправке новой карточки слова игроку."""
+    if id_telegram == game['players_dreaming_order'][game['dreamer_index']]:
+        return
+
+    await delete_user_messages(
+        chat_id=data['chat_id'],
+        event_key=MessagesEvents.WORD,
+    )
+    if send_supervisor_keyboard:
+        answer: Message = await bot.send_photo(
+            chat_id=data['chat_id'],
+            photo=game_cards_ids[game['card_index']][1],
+            reply_markup=KEYBOARD_LOBBY_SUPERVISOR_IN_GAME,
+        )
+    else:
+        answer: Message = await bot.send_photo(
+            chat_id=data['chat_id'],
+            photo=game_cards_ids[game['card_index']][1],
+        )
+    await set_user_messages_to_delete(
+        event_key=MessagesEvents.WORD,
+        messages=(answer,),
+    )
 
 
 def __set_round_achievements(
