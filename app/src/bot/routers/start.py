@@ -54,10 +54,7 @@ async def command_start(message: Message) -> None:
             )
         elif user.message_main_last_id:
             messages_ids.append(user.message_main_last_id)
-        await delete_messages_list(
-            chat_id=message.chat.id,
-            messages_ids=messages_ids,
-        )
+        await delete_messages_list(chat_id=message.chat.id, messages_ids=messages_ids)
 
         answer: Message = await message.answer(
             text=(

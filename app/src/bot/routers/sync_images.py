@@ -36,5 +36,5 @@ async def command_sync_images(message: Message):
     await async_sleep(1)
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[message.message_id, message.message_id + 1],
+        messages_ids=(message.message_id, message.message_id + 1),
     )

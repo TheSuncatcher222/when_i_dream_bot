@@ -25,5 +25,5 @@ async def ping(message: Message):
     await async_sleep(0.5)
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[message.message_id, answer.message_id],
+        messages_ids=(message.message_id, answer.message_id),
     )

@@ -44,7 +44,7 @@ async def help(
     """
     Обрабатывает команду "Помощь".
     """
-    await delete_messages_list(chat_id=message.chat.id, messages_ids=[message.message_id])
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
     answer: Message = await message.answer(
         text=(
             'Предисловие.\n\n'
@@ -81,10 +81,7 @@ async def in_help(
     state: FSMContext,
 ) -> None:
     if message.text == RoutersCommands.HELP_RULES:
-        await delete_messages_list(
-            chat_id=message.chat.id,
-            messages_ids=[message.message_id],
-        )
+        await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
         return await message.answer_media_group(
             media=[
                 InputMediaPhoto(media=media_id)
@@ -94,15 +91,12 @@ async def in_help(
         )
 
     if message.text != RoutersCommands.HOME:
-        return await delete_messages_list(
-            chat_id=message.chat.id,
-            messages_ids=[message.message_id],
-        )
+        return await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
 
     state_data: dict[str, Any] = await state.get_data()
     await delete_messages_list(
         chat_id=message.chat.id,
-        messages_ids=[message.message_id, state_data['_help_message_id']],
+        messages_ids=(message.message_id, state_data['_help_message_id']),
     )
     await state.clear()
     await command_start(message=message)

@@ -117,10 +117,7 @@ async def sync_images() -> None:
         text='Синхронизация успешно завершена ✅',
     )
     await asyncio_sleep(1)
-    await delete_messages_list(
-        chat_id=message.chat.id,
-        messages_ids=[message.message_id],
-    )
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,)),
 
 
 async def __check_if_is_needed_to_sync(
@@ -235,10 +232,7 @@ async def __upload_images_to_telegram(
             obj_data[key] = message.photo[-1].file_id
             break
 
-    await delete_messages_list(
-        chat_id=message.chat.id,
-        messages_ids=messages_ids,
-    )
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=messages_ids)
 
     if not db_obj:
         obj_data.update(
