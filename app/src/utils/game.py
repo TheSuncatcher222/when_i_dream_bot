@@ -313,9 +313,11 @@ async def process_in_game(
 
     # INFO. Выход из / удаление из игры.
     elif message.text == RoutersCommands.GAME_DESTROY:
+        await process_game_in_redis(redis_key=game['redis_key'], release=True)
         await __process_in_game_destroy_game(message=message, state=state)
     elif message.text == RoutersCommands.GAME_DROP:
-        await __process_in_game_drop_game(game=game, message=message, state=state)
+        await process_game_in_redis(redis_key=game['redis_key'], release=True)
+        await __process_in_game_drop_game(message=message, state=state)
     elif message.text == RoutersCommands.HOME:
         await __process_in_game_home(game=game, message=message, state=state)
 
@@ -397,6 +399,7 @@ async def process_in_game_destroy_game_confirm(
     state: FSMContext,
     game: dict[str, Any] | None = None,
     from_lobby: bool = False,
+    from_drop_game: bool = False,
 ) -> None:
     """Обрабатывает результат ответа на команду "Главное меню"."""
 
@@ -404,9 +407,12 @@ async def process_in_game_destroy_game_confirm(
     async def __send_destroy_game_message(
         data: dict[str, Any],
         supervisor_chat_id: int,
+        from_drop_game: bool,
     ) -> None:
         """Задача по уведомлению игроков о принудительном завершении игры."""
-        if data['chat_id'] == str(supervisor_chat_id):
+        if from_drop_game:
+            text: str = __choose_drop_game_text(is_run_out_of_players=True)
+        elif data['chat_id'] == str(supervisor_chat_id):
             text: str = 'Сон был прерван..'
         else:
             text: str = 'Хранитель сна прервал твое путешествие..'
@@ -429,8 +435,8 @@ async def process_in_game_destroy_game_confirm(
         messages_ids=(message.message_id,),
     )
 
-    # INFO. Из лобби подтверждение не требуется.
-    if not from_lobby:
+    # INFO. Из лобби или когда в игре не осталось людей - подтверждение не требуется.
+    if not from_lobby and not from_drop_game:
         if message.text not in (RoutersCommands.YES, RoutersCommands.NO):
             return await process_game_in_redis(redis_key=game['redis_key'], release=True)
         elif message.text == RoutersCommands.NO:
@@ -447,6 +453,8 @@ async def process_in_game_destroy_game_confirm(
                 supervisor_id_telegram=game['players_dreaming_order'][game['supervisor_index']],
             )
 
+    if from_drop_game:
+        game['players'].pop(str(message.from_user.id), None)
     game['status'] = GameStatus.FINISHED
     await delete_user_messages(chat_id=message.chat.id, event_key=MessagesEvents.GAME_DESTROY)
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
@@ -467,6 +475,7 @@ async def process_in_game_destroy_game_confirm(
             __send_destroy_game_message(
                 data=data,
                 supervisor_chat_id=message.chat.id,
+                from_drop_game=from_drop_game,
             ),
         )
         for data in game['players'].values()
@@ -475,7 +484,6 @@ async def process_in_game_destroy_game_confirm(
 
 
 async def __process_in_game_drop_game(
-    game: dict[str, Any],
     message: Message,
     state: FSMContext,
 ) -> None:
@@ -497,9 +505,6 @@ async def __process_in_game_drop_game(
         messages=[message, answer],
     )
 
-    game['players'][str(message.from_user.id)]['last_drop_game_message_ids'] = [message.message_id, answer.message_id]
-    await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
-
 
 # TODO: Доделать
 async def __process_in_game_drop_game_confirm(
@@ -508,38 +513,54 @@ async def __process_in_game_drop_game_confirm(
     state: FSMContext,
 ) -> None:
     """Обрабатывает результат ответа на команду "Покинуть игру"."""
+    await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
+
     if message.text not in (RoutersCommands.YES, RoutersCommands.NO):
-        return await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
+        return
 
     if message.text == RoutersCommands.NO:
         await state.set_state(state=GameForm.in_game)
-        await delete_messages_list(
-            chat_id=message.chat.id,
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            messages_ids=game['players'][str(message.from_user.id)]['last_drop_game_message_ids'] + [message.message_id],
+        # INFO. Затрется reply-клавиатура, надо удалить роль и выслать заново.
+        for k in (MessagesEvents.GAME_DROP, MessagesEvents.ROLE):
+            await delete_user_messages(chat_id=message.chat.id, event_key=k)
+        return await __send_game_role_message(
+            data={
+                'role': game['players'][str(message.from_user.id)]['role'],
+                'chat_id': str(message.chat.id),
+            },
+            roles_images=await get_role_image_cards(),
+            supervisor_id_telegram=game['players_dreaming_order'][game['supervisor_index']],
         )
-        await process_game_in_redis(redis_key=game['redis_key'], release=True)
 
-    await __game_drop_move_indexes(game=game, message=message)
+    async with async_session_maker() as session:
+        # TODO. Оптимизировать в один запрос.
+        user: User = await user_crud.retrieve_by_id_telegram(
+            obj_id_telegram=message.from_user.id,
+            session=session,
+        )
+        current_statistic: UserStatistic = await user_statistic_crud.retrieve_by_user_id(
+            user_id=user.id,
+            session=session,
+        )
+        current_statistic.total_quits = current_statistic.total_quits + 1
+        await session.commit()
+
+    # INFO. -1 так как из game игрок еще не был удален.
+    # TODO. Удалить игрока из game в этом месте, а не в функциях ниже.
+    if len(game['players']) - 1 < GameParams.PLAYERS_MIN:
+        await process_in_game_destroy_game_confirm(message=message, state=state, game=game, from_drop_game=True)
+    else:
+        await __game_drop_move_indexes(game=game, message=message)
 
     await state.clear()
     answer: Message = await message.answer(
         text=__choose_drop_game_text(is_leave=True),
         reply_markup=ReplyKeyboardRemove(),
     )
+    await delete_user_messages(chat_id=message.chat.id, all_event_keys=True)
     await asyncio_sleep(5)
     await delete_messages_list(chat_id=message.chat.id, messages_ids=(answer.message_id,))
     await command_start(message=message)
-
-    # async with async_session_maker() as session:
-    #     user: User = await user_crud.retrieve_by_id_telegram(obj_id_telegram=message.from_user.id, session=session)  # await
-    # process_game_in_redis(redis_key=game['redis_key'], set_game=game)
-
-    # tasks: list[Task] = [
-    #     asyncio_create_task(__send_end_game_message(chat_id=data['chat_id']))
-    #     for data in game['players'].values()
-    # ]
-    # await asyncio_gather(*tasks)
 
 
 async def __process_in_game_set_penalty(
@@ -673,7 +694,7 @@ async def __process_in_game_home(
     state: FSMContext,
 ) -> None:
     """Обрабатывает команду "Домой"."""
-    player: dict[str, Any] = game['players'].pop(str(message.from_user.id))
+    game['players'].pop(str(message.from_user.id), None)
     if len(game['players']) == 0:
         await process_game_in_redis(redis_key=game['redis_key'], delete=True)
         process_avaliable_game_numbers(remove_number=game['number'])
