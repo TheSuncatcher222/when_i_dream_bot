@@ -26,6 +26,7 @@ class MessagesEvents:
     RETELL: str = 'RETELL'
     ROLE: str = 'ROLE'
     ROUND_STARTED: str = 'ROUND_STARTED'
+    SET_PENALTY: str = 'SET_PENALTY'
     WORD: str = 'WORD'
 
     @classmethod
@@ -38,6 +39,7 @@ class MessagesEvents:
             cls.RETELL,
             cls.ROLE,
             cls.ROUND_STARTED,
+            cls.SET_PENALTY,
             cls.WORD,
         )
 
@@ -58,6 +60,8 @@ class MessagesEvents:
             return RedisKeys.MESSAGE_ROLE.format(id_telegram=chat_id)
         elif event_key == cls.ROUND_STARTED:
             return RedisKeys.MESSAGE_ROUND_STARTED.format(id_telegram=chat_id)
+        elif event_key == cls.SET_PENALTY:
+            return RedisKeys.MESSAGE_SET_PENALTY.format(id_telegram=chat_id)
         elif event_key == cls.WORD:
             return RedisKeys.MESSAGE_WORD.format(id_telegram=chat_id)
 
