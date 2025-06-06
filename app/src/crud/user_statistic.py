@@ -7,8 +7,10 @@ from sqlalchemy.sql import (
 from sqlalchemy.sql.dml import Update
 from sqlalchemy.sql.selectable import Select
 
+from app.src.crud.user import user_crud
 from app.src.database.database import AsyncSession
 from app.src.database.base_async_crud import BaseAsyncCrud
+from app.src.models.user import User
 from app.src.models.user_statistic import UserStatistic
 
 
@@ -45,9 +47,11 @@ class UserStatisticCrud(BaseAsyncCrud):
         if perform_check_unique:
             await self._check_unique(obj_data=obj_data, session=session)
 
+        # TODO. Сделать одним запросом в БД.
+        user: User = await user_crud.retrieve_by_id_telegram(obj_id_telegram=user_id_telegram, session=session)
         stmt: Update = (
             update(UserStatistic)
-            .where(UserStatistic.user.id_telegram == user_id_telegram)
+            .where(UserStatistic.user_id == user.id)
             .values(**obj_data)
             .returning(UserStatistic)
         )
