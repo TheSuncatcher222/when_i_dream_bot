@@ -1,7 +1,5 @@
 # Телеграм бот "Пока я сплю" (@When_I_Dream_Bot)
 
-❗️В ПРОЦЕССЕ РАЗРАБОТКИ❗️
-
 Телеграм бот, созданный для игры в настолку "Пока я сплю" без необходимости иметь ее физическую копию.
 
 ___
@@ -75,3 +73,7 @@ ___
 MIT
 
 **Ура, халява!**
+
+Издательство: Стиль Жизни, Asmodee
+Автор: Chris Darsaklis
+Иллюстраторы: Vincent Dutrait, Anne Heidsieck, Asterman Studio, Christine Deschamps, Christophe Swal, Cyril Nouvel, Cyrille Bertin, Eric Azagury, Fred Navez, Gaël Lannurien, Ismaël Pommaz, Jonathan Aucomte, Julien Delval, Loïc Billiau, Maëva da Silva, Miguel Coimbra, Nicolas Fructus, Régis Torres, Sébastien Caiveau
