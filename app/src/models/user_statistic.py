@@ -43,6 +43,7 @@ class UserStatistic(Base):
         nullable=True,
         server_default=expression.null(),
     )
+    # TODO. Переименовать в total_*
     top_penalties: Mapped[int] = mapped_column(
         comment='Общее количество штрафов',
         server_default='0',
