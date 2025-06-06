@@ -10,6 +10,7 @@ from app.src.bot.routers.game_create import router  as game_create
 from app.src.bot.routers.game_join import router as game_join
 from app.src.bot.routers.ping import router as ping
 from app.src.bot.routers.start import router as start
+from app.src.bot.routers.statistic import router as statistic
 from app.src.bot.routers.sync_images import router as sync_images
 
 dp: Dispatcher = Dispatcher(
@@ -21,6 +22,7 @@ routers: tuple[Router] = (
     game_create,
     game_join,
     ping,
+    statistic,
     sync_images,
 )
 
