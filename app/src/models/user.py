@@ -93,7 +93,7 @@ class User(Base):
         back_populates='user',
     )
 
-    def get_full_name(self) -> str:
+    def get_full_name(self, hide: bool = False) -> str:
         """Возвращает имя пользователя."""
         name: list[str] = []
         if self.name_first:
@@ -105,6 +105,19 @@ class User(Base):
                 name.append(f'(@{self.username})')
             else:
                 name.append(f'@{self.username}')
+        if hide:
+            name: list[str] = self.__hide_name_parts(name=name)
         if name:
             return ''.join(name)
         return self.id_telegram
+
+    def __hide_name_parts(self, name: list[str]) -> list[str]:
+        """Скрывает последнюю половину каждой части имени пользователя."""
+        result = []
+        for s in name:
+            if len(s) <= 1:
+                result.append(s)
+            else:
+                half = len(s) // 2
+                result.append(s[:half] + '*' * (len(s) - half))
+        return result
