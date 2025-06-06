@@ -74,6 +74,14 @@ MIT
 
 **Ура, халява!**
 
-Издательство: Стиль Жизни, Asmodee
+___
+
+### АВТОРСТВО
+
 Автор: Chris Darsaklis
+
 Иллюстраторы: Vincent Dutrait, Anne Heidsieck, Asterman Studio, Christine Deschamps, Christophe Swal, Cyril Nouvel, Cyrille Bertin, Eric Azagury, Fred Navez, Gaël Lannurien, Ismaël Pommaz, Jonathan Aucomte, Julien Delval, Loïc Billiau, Maëva da Silva, Miguel Coimbra, Nicolas Fructus, Régis Torres, Sébastien Caiveau
+
+Издательство: Стиль Жизни, Asmodee
+
+Версия игры в Телеграме не используется в коммерческих целях!
