@@ -12,9 +12,9 @@ class RoutersCommands:
     """
 
     # Admin
-    PING: str = '⚠️ Пинг'
-    STATISTIC: str = '⚠️ Статистика'
-    SYNC_IMAGES: str = '⚠️ Синхронизировать картинки'
+    PING: str = '🏓 Пинг'
+    STATISTIC: str = '📊 Статистика'
+    SYNC_IMAGES: str = '🔄 Картинки'
 
     # Общее.
     CANCEL: str = 'Отмена'
@@ -70,8 +70,7 @@ KEYBOARD_MAIN_MENU: ReplyKeyboardMarkup = make_row_keyboard(
 )
 KEYBOARD_MAIN_MENU_ADMIN: ReplyKeyboardMarkup = make_row_keyboard(
     rows=(
-        (RoutersCommands.PING, RoutersCommands.STATISTIC),
-        (RoutersCommands.SYNC_IMAGES,),
+        (RoutersCommands.PING, RoutersCommands.SYNC_IMAGES, RoutersCommands.STATISTIC),
         (RoutersCommands.GAME_CREATE, RoutersCommands.GAME_JOIN),
         (RoutersCommands.HELP,),
     ),
