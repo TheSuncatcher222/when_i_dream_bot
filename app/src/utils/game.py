@@ -193,6 +193,19 @@ def process_avaliable_game_numbers(
 async def send_game_start_messages(game: dict[str, Any]) -> None:
     """Отправляет сообщение игрокам в начале игры."""
 
+    async def __set_players_last_game_datetime(
+        id_telegram: str | int,
+        datetime_now: datetime,
+    ) -> None:
+        """Обновляет время последней игры у игрока."""
+        async with async_session_maker() as session:
+            await user_statistic_crud.update_by_user_id_telegram(
+                user_id_telegram=id_telegram,
+                obj_data={'last_game_datetime': datetime_now},
+                session=session,
+                perform_check_unique=False,
+            )
+
     async def __send_game_start_message(chat_id: int) -> None:
         """Задача по отправке сообщения игроку в начале игры."""
         await delete_user_messages(chat_id=chat_id, event_key=MessagesEvents.IN_LOBBY)
@@ -214,8 +227,17 @@ async def send_game_start_messages(game: dict[str, Any]) -> None:
             await asyncio_sleep(2)
         await delete_messages_list(chat_id=chat_id, messages_ids=messages_ids)
 
+    datetime_now: datetime = datetime.now(tz=Timezones.MOSCOW)
     tasks: list[Task] = [
         asyncio_create_task(__send_game_start_message(chat_id=data['chat_id']))
+        for data in game['players'].values()
+    ] + [
+        asyncio_create_task(
+            __set_players_last_game_datetime(
+                id_telegram=data['chat_id'],
+                datetime_now=datetime_now,
+            ),
+        )
         for data in game['players'].values()
     ]
     await asyncio_gather(*tasks)
@@ -466,7 +488,7 @@ async def process_in_game_destroy_game_confirm(
     #       чтобы он смог обработать команду "RoutersCommands.HOME".
     await state.set_state(state=GameForm.in_game)
 
-    tasks: list[Task] = [
+    tasks: tuple[Task] = (
         asyncio_create_task(
             __send_destroy_game_message(
                 data=data,
@@ -475,7 +497,7 @@ async def process_in_game_destroy_game_confirm(
             ),
         )
         for data in game['players'].values()
-    ]
+    )
     await asyncio_gather(*tasks)
 
 
@@ -856,14 +878,14 @@ async def __process_in_game_end_game(
     game['status'] = GameStatus.FINISHED
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
-    tasks: list[Task] = [
-        __process_in_game_end_game_update_user_db(data=data)
+    tasks: tuple[Task] = (
+        asyncio_create_task(__process_in_game_end_game_update_user_db(data=data))
         for data in game['players'].values()
-    ]
+    )
     await asyncio_gather(*tasks)
 
     text: str = __get_results_text(game=game)
-    tasks: list[Task] = [
+    tasks: tuple[Task] = (
         asyncio_create_task(
             __process_in_game_end_game_send_message(
                 text=text,
@@ -871,7 +893,7 @@ async def __process_in_game_end_game(
             ),
         )
         for data in game['players'].values()
-    ]
+    )
     await asyncio_gather(*tasks)
 
 
@@ -946,14 +968,16 @@ async def __process_in_game_end_round_ask_for_retail(redis_key: str) -> None:
     game['status'] = GameStatus.WAIT_DREAMER_RETAILS
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
-    tasks: list[Task] = [
-        __process_in_game_end_round_ask_for_retail_send_message(
-            text=text,
-            chat_id=data['chat_id'],
-            game=game,
+    tasks: tuple[Task] = (
+        asyncio_create_task(
+            __process_in_game_end_round_ask_for_retail_send_message(
+                text=text,
+                chat_id=data['chat_id'],
+                game=game,
+            ),
         )
         for data in game['players'].values()
-    ]
+    )
     await asyncio_gather(*tasks)
 
 
@@ -969,7 +993,7 @@ async def __process_in_game_end_round_ask_for_retail_confirm(
 
     await delete_messages_list(chat_id=message.chat.id, messages_ids=(message.message_id,))
     tasks: tuple[Task] = (
-        __delete_retell_messages(chat_id=data['chat_id'])
+        asyncio_create_task(__delete_retell_messages(chat_id=data['chat_id']))
         for data in game['players'].values()
     )
     await asyncio_gather(*tasks)
@@ -1072,7 +1096,7 @@ async def send_game_roles_messages(game: dict[str, Any]) -> None:
 
     __set_players_roles(game=game)
     roles_images: dict[str, str] = await get_role_image_cards()
-    tasks: list[Task] = [
+    tasks: tuple[Task] = (
         asyncio_create_task(
             __send_game_role_message(
                 data=data,
@@ -1081,7 +1105,7 @@ async def send_game_roles_messages(game: dict[str, Any]) -> None:
             ),
         )
         for data in game['players'].values()
-    ]
+    )
     await asyncio_gather(*tasks)
 
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
@@ -1237,7 +1261,9 @@ async def __process_in_game_end_round(
 
     # TODO. Заменить на tuple везде.
     tasks: tuple[Task] = (
-        __process_in_game_end_round_delete_roles(chat_id=data['chat_id'])
+        asyncio_create_task(
+            __process_in_game_end_round_delete_roles(chat_id=data['chat_id']),
+        )
         for data in game['players'].values()
     )
     await asyncio_gather(*tasks)
@@ -1268,7 +1294,7 @@ async def __send_new_word(game: dict[str, Any]) -> None:
     """Отправляет новую карточку слова игрокам и смещает индекс карточки в игре."""
     game['card_index'] += 1
     game_cards_ids: list[str, str] = redis_get(key=RedisKeys.GAME_WORDS.format(number=game['number']))
-    tasks: list[Task] = [
+    tasks: tuple[Task] = (
         asyncio_create_task(
             __send_new_word_to_player(
                 id_telegram=id_telegram,
@@ -1278,7 +1304,7 @@ async def __send_new_word(game: dict[str, Any]) -> None:
             ),
         )
         for id_telegram, data in game['players'].items()
-    ]
+    )
     await asyncio_gather(*tasks)
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
