@@ -1180,19 +1180,19 @@ def __get_players_roles(players_count: int) -> list[str]:
         fairy, buka, sandman = 1, 1, 1
 
     if players_count == 4:
-        fairy, buka, sandman = 1, 1, 1
-    elif players_count == 5:
         fairy, buka, sandman = 1, 1, 2
+    elif players_count == 5:
+        fairy, buka, sandman = 2, 1, 2
     elif players_count == 6:
-        fairy, buka, sandman = 1, 2, 2
+        fairy, buka, sandman = 3, 2, 1
     elif players_count == 7:
-        fairy, buka, sandman = 2, 3, 1
+        fairy, buka, sandman = 3, 2, 2
     elif players_count == 8:
-        fairy, buka, sandman = 2, 3, 2
+        fairy, buka, sandman = 4, 3, 1
     elif players_count == 9:
-        fairy, buka, sandman = 3, 4, 1
+        fairy, buka, sandman = 4, 3, 2
     elif players_count == 10:
-        fairy, buka, sandman = 3, 4, 2
+        fairy, buka, sandman = 5, 4, 1
     return [GameRoles.FAIRY] * fairy + [GameRoles.BUKA] * buka + [GameRoles.SANDMAN] * sandman
 
 
