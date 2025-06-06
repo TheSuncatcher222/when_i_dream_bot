@@ -1,9 +1,4 @@
-from asyncio import (
-    Task,
-    gather as asyncio_gather,
-    sleep as asyncio_sleep,
-)
-from datetime import datetime
+from asyncio import sleep as asyncio_sleep
 from random import choices
 from typing import Any
 
@@ -15,14 +10,9 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from app.src.config.config import (
-    Timezones,
-    settings,
-)
+from app.src.config.config import settings
 from app.src.crud.user import user_crud
-from app.src.crud.user_statistic import user_statistic_crud
 from app.src.database.database import (
-    AsyncSession,
     RedisKeys,
     async_session_maker,
 )
@@ -132,19 +122,6 @@ async def start_game(
     await send_game_roles_messages(game=game)
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
-    async with async_session_maker() as session:
-        datetime_now: datetime = datetime.now(tz=Timezones.MOSCOW)
-        tasks: list[Task] = [
-            __set_players_last_game_datetime(
-                id_telegram=k,
-                datetime_now=datetime_now,
-                session=session,
-            )
-            for k in game['players']
-        ]
-        await asyncio_gather(*tasks, return_exceptions=True)
-        await session.commit()
-
 
 @router.message(
     StateFilter(
@@ -218,18 +195,3 @@ async def __validate_players_count(
         messages_ids=(message.message_id, answer.message_id),
     )
     return False
-
-
-async def __set_players_last_game_datetime(
-    id_telegram: str | int,
-    datetime_now: datetime,
-    session: AsyncSession,
-) -> None:
-    """Обновляет время последней игры у игрока."""
-    await user_statistic_crud.update_by_user_id_telegram(
-        obj_id_telegram=id_telegram,
-        obj_data={'last_game_datetime': datetime_now},
-        session=session,
-        perform_check_unique=False,
-        perform_commit=False,
-    )
