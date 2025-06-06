@@ -13,6 +13,7 @@ class RoutersCommands:
 
     # Admin
     PING: str = '⚠️ Пинг'
+    STATISTIC: str = '⚠️ Статистика'
     SYNC_IMAGES: str = '⚠️ Синхронизировать картинки'
 
     # Общее.
@@ -69,7 +70,7 @@ KEYBOARD_MAIN_MENU: ReplyKeyboardMarkup = make_row_keyboard(
 )
 KEYBOARD_MAIN_MENU_ADMIN: ReplyKeyboardMarkup = make_row_keyboard(
     rows=(
-        (RoutersCommands.PING,),
+        (RoutersCommands.PING, RoutersCommands.STATISTIC),
         (RoutersCommands.SYNC_IMAGES,),
         (RoutersCommands.GAME_CREATE, RoutersCommands.GAME_JOIN),
         (RoutersCommands.HELP,),
