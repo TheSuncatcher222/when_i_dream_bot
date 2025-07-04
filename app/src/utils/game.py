@@ -748,15 +748,12 @@ async def __process_in_game_end_game(
         chat_id: int,
     ) -> None:
         """Задача по уведомлению игроков о завершении игры."""
-        answer: Message = await bot.send_message(
+        await bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=KEYBOARD_HOME,
         )
-        await set_user_messages_to_delete(
-            event_key=MessagesEvents.GAME_RESULTS,
-            messages=[answer],
-        )
+
 
     async def __process_in_game_end_game_update_user_db(
         data: dict[str, Any],
