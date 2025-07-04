@@ -45,13 +45,15 @@ async def command_start(message: Message) -> None:
                 session=session,
                 perform_commit=False,
             )
-            await message.answer_media_group(
-                media=[
-                    InputMediaPhoto(media=media_id)
-                    for media_id
-                    in await get_rules_ids_telegram()
-                ],
-            )
+            rules: list[str] = await get_rules_ids_telegram()
+            if rules:
+                await message.answer_media_group(
+                    media=[
+                        InputMediaPhoto(media=media_id)
+                        for media_id
+                        in rules
+                    ],
+                )
         elif user.message_main_last_id:
             messages_ids.append(user.message_main_last_id)
         await delete_messages_list(chat_id=message.chat.id, messages_ids=messages_ids)
