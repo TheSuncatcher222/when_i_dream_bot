@@ -921,6 +921,7 @@ async def __process_in_game_end_round_ask_for_retail(redis_key: str) -> None:
         )
         messages_to_delete: list[Message] = [answer]
         if chat_id == game['players_dreaming_order'][game['supervisor_index']]:
+            await asyncio_sleep(1)
             if game['round_correct_words']:
                 reply_markup: ReplyKeyboardMarkup = KEYBOARD_LOBBY_SUPERVISOR_IN_GAME_RETELL
             else:
