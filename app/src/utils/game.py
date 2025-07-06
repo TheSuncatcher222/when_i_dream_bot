@@ -81,6 +81,8 @@ from app.src.validators.game import (
 from app.src.validators.user import UserAchievementDescription
 
 # INFO. Словарь с игрой в конечно форме (хранится в Redis):
+# TODO. Вынести все из одного словаря в отдельные, чтобы ускорить работу с памятью.
+#       (например, достижения и статистика).
 # game = {
 #     'number': '1234',
 #     'password': '1234',
@@ -90,13 +92,13 @@ from app.src.validators.user import UserAchievementDescription
 #     'host_chat_id': 87654321,
 #     'host_lobby_message_id': 123,
 #
-#     'card_index: 0,
+#     'card_index': 0,
 #
 #     'players': {
 #         '12345678': {
 #             'name': 'Иван Иванов (@iVan)',
 #             'chat_id': 87654321,
-#             'id: 1,
+#             'id': 1,
 #
 #             'role': 'buka',
 #             'statistic': {
@@ -111,7 +113,7 @@ from app.src.validators.user import UserAchievementDescription
 #         ...
 #     },
 #
-#     'players_dreaming_order': [12345678, 56781234, ...],
+#     'players_dreaming_order': ['12345678', '56781234', ...],
 #     'dreamer_index': 0,
 #     'supervisor_index': 1,
 #
@@ -240,6 +242,35 @@ async def send_game_start_messages(game: dict[str, Any]) -> None:
         )
         for data in game['players'].values()
     ]
+    await asyncio_gather(*tasks)
+
+
+async def send_users_ordering_message(game: dict[str, Any]) -> None:
+    """Отправляет сообщение игрокам с порядком."""
+
+    async def __send_users_ordering_taks(
+        user_id_telegram: str | int,
+        text: str,
+    ) -> None:
+        """Отправляет сообщение игроку."""
+        message: Message = await bot.send_message(
+            chat_id=user_id_telegram,
+            text=text,
+        )
+        await set_user_messages_to_delete(
+            event_key=MessagesEvents.GAME_DESTROY,
+            messages=[message],
+        )
+
+    text: str = (
+        'В игре определен следующий порядок игроков:\n'
+        +
+        '\n'.join([f'- {game['players'][player]["name"]}' for player in game['players_dreaming_order']])
+    )
+    tasks: tuple[Task] = (
+        asyncio_create_task(__send_users_ordering_taks(user_id_telegram=id_telegram, text=text))
+        for id_telegram in game['players_dreaming_order']
+    )
     await asyncio_gather(*tasks)
 
 
@@ -754,7 +785,6 @@ async def __process_in_game_end_game(
             reply_markup=KEYBOARD_HOME,
         )
 
-
     async def __process_in_game_end_game_update_user_db(
         data: dict[str, Any],
     ) -> None:
@@ -822,9 +852,9 @@ async def __process_in_game_end_game(
             reverse=True,
         )
         medals: dict[int, str] = {
-            1: '🥇 ',
-            2: '🥈 ',
-            3: '🥉 ',
+            1: '🥇',
+            2: '🥈',
+            3: '🥉',
         }
 
         text: list[str] = [
@@ -844,7 +874,7 @@ async def __process_in_game_end_game(
         for data in sorted_players:
             text.append(
                 '\n'
-                f'{medals.get(i, '🎖 ')}{data["name"]}:\n'
+                f'{medals.get(i, '🎖')} {data["name"]}:\n'
                 f'- общий счет: {data["statistic"]["top_score"]}\n'
                 f'- очки за фею: {data["statistic"]["top_score_fairy"]}\n'
                 f'- очки за буку: {data["statistic"]["top_score_buka"]}\n'
@@ -1075,7 +1105,6 @@ async def __send_game_role_message(
     await set_user_messages_to_delete(event_key=MessagesEvents.ROLE, messages=messages)
 
 
-
 async def send_game_roles_messages(game: dict[str, Any]) -> None:
     """Отправляет сообщения игрокам с их ролями."""
 
@@ -1173,7 +1202,8 @@ def __get_players_roles(players_count: int) -> list[str]:
     Формирует список ролей игроков в зависимости от количества.
     """
     # INFO. Заглушка, на всякий случай, если по среди процесса
-    #       игрок выйдет из игры.
+    #       игрок выйдет из игры, чтобы не было ошибки
+    #       (игра прервется в другой функции).
     if players_count < 4:
         fairy, buka, sandman = 1, 1, 1
 
