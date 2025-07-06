@@ -26,6 +26,7 @@ from app.src.utils.game import (
     process_game_in_redis,
     send_game_roles_messages,
     send_game_start_messages,
+    send_users_ordering_message,
     setup_game_data,
 )
 from app.src.utils.message import (
@@ -120,6 +121,7 @@ async def start_game(
     await setup_game_data(game=game)
     await send_game_start_messages(game=game)
     await send_game_roles_messages(game=game)
+    await send_users_ordering_message(game=game)
     await process_game_in_redis(redis_key=game['redis_key'], set_game=game)
 
 
