@@ -48,10 +48,6 @@ class UserStatistic(Base):
         comment='Общее количество штрафов',
         server_default='0',
     )
-    total_quits: Mapped[int] = mapped_column(
-        comment='Общее количество выходов из игры',
-        server_default='0',
-    )
     top_score: Mapped[int] = mapped_column(
         comment='Общее количество очков',
         server_default='0',
@@ -74,6 +70,14 @@ class UserStatistic(Base):
     )
     total_wins: Mapped[int] = mapped_column(
         comment='Общее количество побед',
+        server_default='0',
+    )
+    total_games: Mapped[int] = mapped_column(
+        comment='Общее количество игр',
+        server_default='0',
+    )
+    total_quits: Mapped[int] = mapped_column(
+        comment='Общее количество выходов из игры',
         server_default='0',
     )
 
