@@ -63,6 +63,8 @@ class UserCrud(BaseAsyncCrud):
                 UserStatistic.top_score.desc(),
                 UserStatistic.total_wins.desc(),
                 UserStatistic.total_quits.asc(),
+                UserStatistic.total_games.asc(),
+                UserStatistic.user_id.asc(),
             )
         )
         return (await session.execute(query)).scalars().all()
