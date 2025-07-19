@@ -13,6 +13,7 @@ class RoutersCommands:
 
     # Admin
     PING: str = '🏓 Пинг'
+    SEND_TEST_IMAGE: str = '📸 Тестовое изображение'
     STATISTIC: str = '📊 Статистика'
     SYNC_IMAGES: str = '🔄 Картинки'
 
@@ -70,7 +71,8 @@ KEYBOARD_MAIN_MENU: ReplyKeyboardMarkup = make_row_keyboard(
 )
 KEYBOARD_MAIN_MENU_ADMIN: ReplyKeyboardMarkup = make_row_keyboard(
     rows=(
-        (RoutersCommands.PING, RoutersCommands.SYNC_IMAGES, RoutersCommands.STATISTIC),
+        (RoutersCommands.PING, RoutersCommands.STATISTIC),
+        (RoutersCommands.SEND_TEST_IMAGE, RoutersCommands.SYNC_IMAGES, ),
         (RoutersCommands.GAME_CREATE, RoutersCommands.GAME_JOIN),
         (RoutersCommands.HELP,),
     ),
