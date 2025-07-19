@@ -9,6 +9,7 @@ from app.src.bot.routers.help import router as help
 from app.src.bot.routers.game_create import router  as game_create
 from app.src.bot.routers.game_join import router as game_join
 from app.src.bot.routers.ping import router as ping
+from app.src.bot.routers.send_test_picture import router as send_test_picture
 from app.src.bot.routers.start import router as start
 from app.src.bot.routers.statistic import router as statistic
 from app.src.bot.routers.sync_images import router as sync_images
@@ -22,6 +23,7 @@ routers: tuple[Router] = (
     game_create,
     game_join,
     ping,
+    send_test_picture,
     statistic,
     sync_images,
 )
