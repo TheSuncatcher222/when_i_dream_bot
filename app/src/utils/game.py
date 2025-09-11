@@ -201,9 +201,20 @@ async def send_game_start_messages(game: dict[str, Any]) -> None:
     ) -> None:
         """Обновляет время последней игры у игрока."""
         async with async_session_maker() as session:
-            await user_statistic_crud.update_by_user_id_telegram(
-                user_id_telegram=id_telegram,
-                obj_data={'last_game_datetime': datetime_now},
+            user: User = await user_crud.retrieve_by_id_telegram(
+                obj_id_telegram=id_telegram,
+                session=session,
+            )
+            user_statistic: UserStatistic = await user_statistic_crud.retrieve_by_user_id(
+                user_id=user.id,
+                session=session,
+            )
+            await user_statistic_crud.update_by_id(
+                obj_id=user_statistic.id,
+                obj_data={
+                    'last_game_datetime': datetime_now,
+                    'total_games': user_statistic.total_games + 1,
+                },
                 session=session,
                 perform_check_unique=False,
             )
