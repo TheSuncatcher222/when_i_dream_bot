@@ -57,7 +57,7 @@ nano app/src/config/.env
 ✅ Запустить Docker (убедитесь, что `docker daemon` запущен в системе!)
 
 ```
-docker-compose -f docker/docker-compose.yml -f docker/docker-compose-dev.yml up -d --build
+docker-compose -f docker/docker-compose.yml -f docker/docker-compose-dev.yml up -d
 ```
 
 ___
